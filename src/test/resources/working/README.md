@@ -1,0 +1,1 @@
+Working directory into which to put test directories for assembling bags
