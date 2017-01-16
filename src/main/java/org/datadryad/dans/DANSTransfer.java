@@ -66,13 +66,31 @@ public class DANSTransfer
     public DANSTransfer(String tempDir)
             throws Exception
     {
-        this.tempDir = tempDir;
-        this.context = new Context();
+        this(tempDir,
+                ConfigurationManager.getProperty("dans", "dans.sword.username"),
+                ConfigurationManager.getProperty("dans", "dans.sword.password"),
+                ConfigurationManager.getProperty("dans", "dans.collection"),
+                ConfigurationManager.getProperty("dans", "dans.packaging"));
+    }
 
-        this.dansUsername = ConfigurationManager.getProperty("dans", "dans.sword.username");
-        this.dansPassword = ConfigurationManager.getProperty("dans", "dans.sword.password");
-        this.dansCollection = ConfigurationManager.getProperty("dans", "dans.collection");
-        this.dansPackaging = ConfigurationManager.getProperty("dans", "dans.packaging");
+    public DANSTransfer(String tempDir, String username, String password, String collection, String packaging)
+            throws Exception
+    {
+        this.tempDir = tempDir;
+
+        // FIXME: it's impossible to run this code outside of DSpace, so this is a hack to make this module
+        // partially testable
+        try {
+            this.context = new Context();
+        }
+        catch (NoClassDefFoundError e) {
+            System.out.println("Context failed to initialise");
+        }
+
+        this.dansUsername = username;
+        this.dansPassword = password;
+        this.dansCollection = collection;
+        this.dansPackaging = packaging;
     }
 
     public void doTransfer()
@@ -137,7 +155,7 @@ public class DANSTransfer
         return bag;
     }
 
-    public void deposit(DANSBag bag)
+    public DepositReceipt deposit(DANSBag bag)
             throws Exception
     {
         Deposit dep = new Deposit();
@@ -153,10 +171,13 @@ public class DANSTransfer
         try
         {
             DepositReceipt receipt = client.deposit(this.dansCollection, dep, auth);
+            return receipt;
         }
         catch (SWORDError e)
         {
 
         }
+
+        return null;
     }
 }

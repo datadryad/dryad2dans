@@ -2,9 +2,12 @@ package org.datadryad.dans.test;
 
 import org.apache.commons.io.FileUtils;
 import org.datadryad.dans.DANSTransfer;
+import org.datadryad.dansbagit.DANSBag;
+import org.dspace.core.ConfigurationManager;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+import org.swordapp.client.DepositReceipt;
 
 import java.io.File;
 import java.io.IOException;
@@ -19,6 +22,10 @@ public class TestDANS
     public void setUp()
     {
         this.cleanup = new ArrayList<String>();
+
+        // FIXME: an attempt to load the test config from DSpace.  Currently unsuccessful
+        String dspaceCfg = "/opt/dryad/config/dspace.cfg";
+        ConfigurationManager.loadConfig(dspaceCfg);
     }
 
     @After
@@ -45,15 +52,16 @@ public class TestDANS
     }
 
     @Test
-    public void testMakeBag()
+    public void testSendBag()
             throws IOException, Exception
     {
         String workingDir = System.getProperty("user.dir") + "/src/test/resources/working/testdans";
         this.cleanup.add(workingDir);
 
         String zipPath = System.getProperty("user.dir") + "/src/test/resources/working/testdans.zip";
-        this.cleanup.add(zipPath);
 
-        DANSTransfer dt = new DANSTransfer(workingDir);
+        DANSTransfer dt = new DANSTransfer(workingDir, "sword", "sword", "http://localhost:8080/easy-sword2/collection/1", "http://purl.org/net/sword/package/BagIt");
+        DANSBag bag = new DANSBag("testbag", zipPath, workingDir);
+        DepositReceipt receipt = dt.deposit(bag);
     }
 }
