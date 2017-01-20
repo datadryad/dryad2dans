@@ -60,7 +60,30 @@ public class TestDANS
 
         String zipPath = System.getProperty("user.dir") + "/src/test/resources/working/testdans.zip";
 
-        DANSTransfer dt = new DANSTransfer(workingDir, "sword", "sword", "http://localhost:8080/easy-sword2/collection/1", "http://purl.org/net/sword/package/BagIt");
+        DANSTransfer dt = new DANSTransfer(workingDir,
+                "sword",
+                "sword",
+                "http://localhost:8080/easy-sword2/collection/1", "http://purl.org/net/sword/package/BagIt",
+                -1);
+        DANSBag bag = new DANSBag("testbag", zipPath, workingDir);
+        DepositReceipt receipt = dt.deposit(bag);
+    }
+
+
+    @Test
+    public void testSendSegments()
+            throws IOException, Exception
+    {
+        String workingDir = System.getProperty("user.dir") + "/src/test/resources/working/testdans";
+        this.cleanup.add(workingDir);
+
+        String zipPath = System.getProperty("user.dir") + "/src/test/resources/working/testdans.zip";
+
+        DANSTransfer dt = new DANSTransfer(workingDir,
+                "sword",
+                "sword",
+                "http://localhost:8080/easy-sword2/collection/1", "http://purl.org/net/sword/package/BagIt",
+                1000);
         DANSBag bag = new DANSBag("testbag", zipPath, workingDir);
         DepositReceipt receipt = dt.deposit(bag);
     }

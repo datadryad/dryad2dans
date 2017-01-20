@@ -6,6 +6,8 @@ import org.apache.commons.cli.Options;
 import org.apache.commons.cli.PosixParser;
 import org.datadryad.dansbagit.DANSBag;
 import org.datadryad.dansbagit.DIM;
+import org.datadryad.dansbagit.FileSegmentInputStream;
+import org.datadryad.dansbagit.FileSegmentIterator;
 import org.dspace.content.DCValue;
 import org.dspace.content.Item;
 import org.dspace.content.ItemIterator;
@@ -14,6 +16,7 @@ import org.dspace.core.Context;
 import org.swordapp.client.*;
 
 import java.io.File;
+import java.io.InterruptedIOException;
 import java.sql.SQLException;
 
 public class DANSTransfer
@@ -62,6 +65,7 @@ public class DANSTransfer
     private String dansPassword = null;
     private String dansCollection = null;
     private String dansPackaging = null;
+    private long maxChunkSize = -1;
 
     public DANSTransfer(String tempDir)
             throws Exception
@@ -70,10 +74,11 @@ public class DANSTransfer
                 ConfigurationManager.getProperty("dans", "dans.sword.username"),
                 ConfigurationManager.getProperty("dans", "dans.sword.password"),
                 ConfigurationManager.getProperty("dans", "dans.collection"),
-                ConfigurationManager.getProperty("dans", "dans.packaging"));
+                ConfigurationManager.getProperty("dans", "dans.packaging"),
+                ConfigurationManager.getLongProperty("dans", "dans.max.chunk.size"));
     }
 
-    public DANSTransfer(String tempDir, String username, String password, String collection, String packaging)
+    public DANSTransfer(String tempDir, String username, String password, String collection, String packaging, long maxChunkSize)
             throws Exception
     {
         this.tempDir = tempDir;
@@ -91,6 +96,8 @@ public class DANSTransfer
         this.dansPassword = password;
         this.dansCollection = collection;
         this.dansPackaging = packaging;
+        this.maxChunkSize = maxChunkSize;
+
     }
 
     public void doTransfer()
@@ -158,26 +165,66 @@ public class DANSTransfer
     public DepositReceipt deposit(DANSBag bag)
             throws Exception
     {
-        Deposit dep = new Deposit();
-        dep.setPackaging(this.dansPackaging);
-        dep.setMimeType("application/zip");     // FIXME: this will be different when doing continued deposit
-        dep.setMd5(bag.getMD5());
-        dep.setFilename(bag.getZipName());
-        dep.setFile(bag.getInputStream());
-
-        AuthCredentials auth = new AuthCredentials(this.dansUsername, this.dansPassword);
-
-        SWORDClient client = new SWORDClient();
-        try
+        // work out if we're doing this in one hit, or as a continued deposit
+        if (bag.size() > this.maxChunkSize && this.maxChunkSize != -1)
         {
-            DepositReceipt receipt = client.deposit(this.dansCollection, dep, auth);
+            // we're doing a continued deposit
+            DepositReceipt receipt = null;
+            FileSegmentIterator fsi = bag.getSegmentIterator(this.maxChunkSize, true);
+            int i = 1;
+            while (fsi.hasNext())
+            {
+                FileSegmentInputStream fsis = fsi.next();
+
+                Deposit dep = new Deposit();
+                dep.setPackaging(this.dansPackaging);
+                dep.setMimeType("application/octet-stream");
+                dep.setMd5(fsis.getMd5());
+                dep.setFilename(bag.getZipName() + "." + Integer.toString(i));
+                dep.setFile(fsis);
+                dep.setInProgress(fsi.hasNext());
+
+                AuthCredentials auth = new AuthCredentials(this.dansUsername, this.dansPassword);
+
+                SWORDClient client = new SWORDClient();
+                try
+                {
+                    receipt = client.deposit(this.dansCollection, dep, auth);
+                }
+                catch (SWORDError e)
+                {
+                    System.out.println(fsis.getMd5());
+                    throw new DANSTransferException(e);
+                }
+
+                i++;
+            }
+
+            // return just the last receipt
             return receipt;
         }
-        catch (SWORDError e)
+        else
         {
+            // ordinary one-hit deposit
+            Deposit dep = new Deposit();
+            dep.setPackaging(this.dansPackaging);
+            dep.setMimeType("application/zip");
+            dep.setMd5(bag.getMD5());
+            dep.setFilename(bag.getZipName());
+            dep.setFile(bag.getInputStream());
 
+            AuthCredentials auth = new AuthCredentials(this.dansUsername, this.dansPassword);
+
+            SWORDClient client = new SWORDClient();
+            try
+            {
+                DepositReceipt receipt = client.deposit(this.dansCollection, dep, auth);
+                return receipt;
+            }
+            catch (SWORDError e)
+            {
+                throw new DANSTransferException(e);
+            }
         }
-
-        return null;
     }
 }
