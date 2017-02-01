@@ -98,7 +98,7 @@ public class TestDANS
     public void testSendReal()
             throws Exception
     {
-        String workingDir = System.getProperty("user.dir") + "/src/test/resources/working/test21";
+        String workingDir = System.getProperty("user.dir") + "/src/test/resources/working/testreal";
         this.cleanup.add(workingDir);
 
         String zipPath = System.getProperty("user.dir") + "/src/test/resources/bags/21.zip";
@@ -111,7 +111,7 @@ public class TestDANS
                 -1,
                 true,
                 true);    // make sure we keep the bag, as this is a test resource
-        DANSBag bag = new DANSBag("21", zipPath, workingDir);
+        DANSBag bag = new DANSBag("real", zipPath, workingDir);
         DepositReceipt receipt = dt.deposit(bag);
     }
 }
