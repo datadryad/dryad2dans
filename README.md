@@ -59,6 +59,14 @@ Finally, copy the main library over too
     cp target/dans-1.0-SNAPSHOT.jar /opt/dryad/lib
 
 
+## DSpace Setup
+
+You need to import the DANS metadata into the DSpace metadata schema registry as follows:
+
+    ./dspace registry-loader -dc config/registries/dans-metadata.xml
+
+Once you have done this, you may need to restart tomcat for the changes to take effect.
+
 ## Command Line
 
 The command line script can be run with:
@@ -83,3 +91,4 @@ and to keep the package around after, using /home/ubuntu/temp as the working dir
 
     ./dspace dsrun org.datadryad.dans.DANSTransfer -i 21 -p -t /home/ubuntu/temp -k
 
+    ./dspace dsrun org.datadryad.dans.DANSTransfer -a -p -t /home/ubuntu/temp -k
