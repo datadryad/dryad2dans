@@ -63,8 +63,11 @@ public class TestDANS
         DANSTransfer dt = new DANSTransfer(workingDir,
                 "sword",
                 "sword",
-                "http://localhost:8080/easy-sword2/collection/1", "http://purl.org/net/sword/package/BagIt",
-                -1);
+                "http://localhost:8080/easy-sword2/collection/1",
+                "http://purl.org/net/sword/package/BagIt",
+                -1,
+                true,
+                true);  // make sure we keep the bag, as this is a test resource
         DANSBag bag = new DANSBag("testbag", zipPath, workingDir);
         DepositReceipt receipt = dt.deposit(bag);
     }
@@ -82,9 +85,33 @@ public class TestDANS
         DANSTransfer dt = new DANSTransfer(workingDir,
                 "sword",
                 "sword",
-                "http://localhost:8080/easy-sword2/collection/1", "http://purl.org/net/sword/package/BagIt",
-                1000);
+                "http://localhost:8080/easy-sword2/collection/1",
+                "http://purl.org/net/sword/package/BagIt",
+                1000,
+                true,
+                true);  // make sure we keep the bag, as this is a test resource
         DANSBag bag = new DANSBag("testbag", zipPath, workingDir);
+        DepositReceipt receipt = dt.deposit(bag);
+    }
+
+    @Test
+    public void testSendReal()
+            throws Exception
+    {
+        String workingDir = System.getProperty("user.dir") + "/src/test/resources/working/test21";
+        this.cleanup.add(workingDir);
+
+        String zipPath = System.getProperty("user.dir") + "/src/test/resources/bags/21.zip";
+
+        DANSTransfer dt = new DANSTransfer(workingDir,
+                "sword",
+                "sword",
+                "http://localhost:8080/easy-sword2/collection/1",
+                "http://purl.org/net/sword/package/BagIt",
+                -1,
+                true,
+                true);    // make sure we keep the bag, as this is a test resource
+        DANSBag bag = new DANSBag("21", zipPath, workingDir);
         DepositReceipt receipt = dt.deposit(bag);
     }
 }
