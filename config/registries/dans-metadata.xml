@@ -1,0 +1,15 @@
+<?xml version="1.0"?>
+
+<dspace-dc-types>
+
+    <dc-schema>
+        <name>dryad</name>
+        <namespace>http://purl.org/dryad/terms/</namespace>
+    </dc-schema>
+
+    <dc-type>
+        <schema>dryad</schema>
+        <element>dansTransferDate</element>
+    </dc-type>
+
+</dspace-dc-types>
