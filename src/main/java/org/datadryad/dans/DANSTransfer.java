@@ -1,34 +1,40 @@
 package org.datadryad.dans;
 
-import org.apache.commons.cli.CommandLine;
-import org.apache.commons.cli.CommandLineParser;
-import org.apache.commons.cli.Options;
-import org.apache.commons.cli.PosixParser;
-import org.datadryad.dansbagit.DANSBag;
-import org.datadryad.dansbagit.DIM;
-import org.datadryad.dansbagit.FileSegmentInputStream;
-import org.datadryad.dansbagit.FileSegmentIterator;
-import org.dspace.content.DCValue;
-import org.dspace.content.Item;
-import org.dspace.content.ItemIterator;
+import org.apache.commons.cli.*;
+import org.apache.log4j.Logger;
+import org.datadryad.api.DryadDataFile;
+import org.datadryad.api.DryadDataPackage;
+import org.datadryad.dansbagit.*;
+import org.dspace.content.*;
 import org.dspace.core.ConfigurationManager;
 import org.dspace.core.Context;
+import org.dspace.storage.bitstore.BitstreamStorageManager;
 import org.swordapp.client.*;
 
 import java.io.File;
-import java.io.InterruptedIOException;
+import java.io.InputStream;
 import java.sql.SQLException;
+import java.util.Set;
 
 public class DANSTransfer
 {
+    private static Logger log = Logger.getLogger(DANSTransfer.class);
+
     public static void main(String[] argv)
             throws Exception
     {
         CommandLineParser parser = new PosixParser();
         Options options = new Options();
-        options.addOption("i", "item", true, "item id (not handle) for dataset item to transfer");
-        options.addOption("t", "temp", true, "local temp directory for assembling bags");
-        options.addOption("b", "bag", true, "path to bag file to deposit");
+
+        options.addOption("i", "item", true, "item id (not handle) for datapackage item to transfer; supply this or -b");
+        options.addOption("b", "bag", true, "path to bag file to deposit; supply this or -i");
+
+        options.addOption("t", "temp", true, "local temp directory for assembling bags and zips");
+        options.addOption("k", "keep", false, "specify this if you want the script to leave the zip file behind after exit");
+
+        options.addOption("p", "package", false, "only package the content, do not deposit; supply this or -d");
+        options.addOption("d", "deposit", false, "both package and deposit the content; supply this or -p");
+
         CommandLine line = parser.parse(options, argv);
 
         int id = -1;
@@ -43,17 +49,61 @@ public class DANSTransfer
         {
             bagPath = line.getOptionValue("b");
         }
+        if (id == -1 && bagPath == null)
+        {
+            System.out.println("You must specify either -i or -b");
+            DANSTransfer.printHelp(options);
+            System.exit(0);
+        }
+        if (id > -1 && bagPath != null)
+        {
+            System.out.println("You may only specify one of -i or -b");
+            DANSTransfer.printHelp(options);
+            System.exit(0);
+        }
 
-        DANSTransfer dt = new DANSTransfer(line.getOptionValue("t"));
+        boolean keep = line.hasOption("k");
+        boolean dep = line.hasOption("d");
+        boolean pack = line.hasOption("p");
+
+        if (!(dep || pack))
+        {
+            System.out.println("You must specify one of -d or -p");
+            DANSTransfer.printHelp(options);
+            System.exit(0);
+        }
+        if (dep && pack)
+        {
+            System.out.println("You may only specify one of -d or -p");
+            DANSTransfer.printHelp(options);
+            System.exit(0);
+        }
+
+        if (!line.hasOption("t"))
+        {
+            System.out.println("You must specify a temporary working directory with -t");
+            DANSTransfer.printHelp(options);
+            System.exit(0);
+        }
+
+        DANSTransfer dt = new DANSTransfer(line.getOptionValue("t"), dep, keep);
 
         if (id > -1)
         {
+            System.out.println("Item run requested");
             dt.doItem(id);
         }
         else if (bagPath != null)
         {
+            System.out.println("Bag processing requested");
             dt.doBag(bagPath);
         }
+    }
+
+    public static void printHelp(Options options)
+    {
+        HelpFormatter formatter = new HelpFormatter();
+        formatter.printHelp("DANSTransfer", options);
     }
 
     /** DSpace Context object */
@@ -67,7 +117,16 @@ public class DANSTransfer
     private String dansPackaging = null;
     private long maxChunkSize = -1;
 
+    private boolean enableDeposit = true;
+    private boolean keepZip = false;
+
     public DANSTransfer(String tempDir)
+            throws Exception
+    {
+        this(tempDir, true, false);
+    }
+
+    public DANSTransfer(String tempDir, boolean enableDeposit, boolean keepZip)
             throws Exception
     {
         this(tempDir,
@@ -75,10 +134,12 @@ public class DANSTransfer
                 ConfigurationManager.getProperty("dans", "dans.sword.password"),
                 ConfigurationManager.getProperty("dans", "dans.collection"),
                 ConfigurationManager.getProperty("dans", "dans.packaging"),
-                ConfigurationManager.getLongProperty("dans", "dans.max.chunk.size"));
+                ConfigurationManager.getLongProperty("dans", "dans.max.chunk.size"),
+                enableDeposit,
+                keepZip);
     }
 
-    public DANSTransfer(String tempDir, String username, String password, String collection, String packaging, long maxChunkSize)
+    public DANSTransfer(String tempDir, String username, String password, String collection, String packaging, long maxChunkSize, boolean enableDeposit, boolean keepZip)
             throws Exception
     {
         this.tempDir = tempDir;
@@ -98,6 +159,8 @@ public class DANSTransfer
         this.dansPackaging = packaging;
         this.maxChunkSize = maxChunkSize;
 
+        this.enableDeposit = enableDeposit;
+        this.keepZip = keepZip;
     }
 
     public void doTransfer()
@@ -113,15 +176,36 @@ public class DANSTransfer
     public void doItem(int id)
             throws Exception
     {
-        Item dataset = Item.find(this.context, id);
-        this.doItem(dataset);
+        log.info("Processing item by id " + Integer.toString(id));
+        Item datapackage = Item.find(this.context, id);
+        this.doItem(datapackage);
     }
 
-    public void doItem(Item dataset)
+    public void doItem(Item datapackage)
             throws Exception
     {
-        DANSBag bag = this.packageItem(dataset);
-        this.deposit(bag);
+        log.info("Processing item object with id " + Integer.toString(datapackage.getID()));
+        DryadDataPackage ddp = new DryadDataPackage(datapackage);
+        this.doDataPackage(ddp);
+    }
+
+    public void doDataPackage(DryadDataPackage ddp)
+            throws Exception
+    {
+        log.info("Processing DryadDataPackage with id " + Integer.toString(ddp.getItem().getID()));
+        DANSBag bag = this.packageItem(ddp);
+        if (this.enableDeposit)
+        {
+            log.info("Depositing DryadDataPackage with id " + Integer.toString(ddp.getItem().getID()));
+            this.deposit(bag);
+        }
+        log.info("Cleaning working directory " + bag.getWorkingDir());
+        bag.cleanupWorkingDir();
+        if (!this.keepZip)
+        {
+            log.info("Cleaning zip file " + bag.getZipPath());
+            bag.cleanupZip();
+        }
     }
 
     public void doBag(String path)
@@ -129,36 +213,73 @@ public class DANSTransfer
         // TODO
     }
 
-    public DANSBag packageItem(Item dataset)
+    public DANSBag packageItem(DryadDataPackage ddp)
             throws Exception
     {
-        String dirName = Integer.toString(dataset.getID());
+        Item item = ddp.getItem();
+        log.info("Packaging item with id " + Integer.toString(item.getID()));
+
+        String dirName = Integer.toString(item.getID());
         String workingDir = this.tempDir + File.separator + dirName;
         String zipPath = this.tempDir + File.separator + dirName + ".zip";
 
-        String name = dataset.getHandle();
-        DCValue[] idents = dataset.getMetadata("dc.identifier");
+        String name = item.getHandle();
+        DCValue[] idents = item.getMetadata("dc.identifier");
         if (idents.length > 0)
         {
             name = idents[0].value;
         }
+        log.info("Packaging item " + Integer.toString(item.getID()) + " with the following parameters: name:" + name + "; zipPath:" + zipPath + "; workingDir:" + workingDir);
 
         DANSBag bag = new DANSBag(name, zipPath, workingDir);
 
         // put all of the item metadata in a DIM record
-        DIM dim = new DIM();
-        DCValue[] dcvs = dataset.getMetadata(Item.ANY, Item.ANY, Item.ANY, Item.ANY);
-        for (DCValue dcv : dcvs)
-        {
-            dim.addField(dcv.schema, dcv.element, dcv.qualifier, dcv.value);
-        }
+        DIMXWalk dimXwalk = new DIMXWalk();
+        DIM dim = dimXwalk.makeDIM(item);
         bag.setDatasetDIM(dim);
 
-        // TODO
-        // dereference the dc.relation.haspart items and copy in their bitstreams
-        // appropriately
+        // put some item metadata in the DDM record
+        DDMXWalk ddmXwalk = new DDMXWalk();
+        DDM ddm = ddmXwalk.makeDDM(item);
+        bag.setDDM(ddm);
+
+        Set<DryadDataFile> ddfs = ddp.getDataFiles(this.context);
+        log.info("Data package item " + Integer.toString(item.getID()) + " contains " + Integer.toString(ddfs.size()) + " Data Files");
+        for (DryadDataFile ddf : ddfs)
+        {
+            Item df = ddf.getItem();
+            log.info("Processing Data File item with id " + Integer.toString(df.getID()));
+
+            String dfIdent = "";
+            DCValue[] dfIdents = df.getMetadata("dc.identifier");
+            if (dfIdents.length > 0)
+            {
+                dfIdent = dfIdents[0].value;
+            }
+
+            Bundle[] bundles = df.getBundles();
+            for (Bundle bundle : bundles)
+            {
+                String bundleName = bundle.getName();
+
+                Bitstream[] bitstreams = bundle.getBitstreams();
+                for (Bitstream bitstream : bitstreams)
+                {
+                    InputStream is = BitstreamStorageManager.retrieve(this.context, bitstream.getID());
+                    String bsName = bitstream.getName();
+                    String format = bitstream.getFormat().getMIMEType();
+                    String desc = bitstream.getDescription();
+
+                    bag.addBitstream(is, bsName, format, desc, dfIdent, bundleName);
+                }
+            }
+
+            DIM dfDim = dimXwalk.makeDIM(df);
+            bag.addDatafileDIM(dfDim, dfIdent);
+        }
 
         bag.writeToFile();
+        log.info("Bag written to file " + bag.getZipPath());
         return bag;
     }
 
@@ -186,6 +307,7 @@ public class DANSTransfer
 
                 AuthCredentials auth = new AuthCredentials(this.dansUsername, this.dansPassword);
 
+                // FIXME: only the first deposit is done to the collection, the other deposits need to be done to the SE-IRI
                 SWORDClient client = new SWORDClient();
                 try
                 {
