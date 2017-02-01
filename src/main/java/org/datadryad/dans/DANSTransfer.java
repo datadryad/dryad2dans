@@ -26,8 +26,9 @@ public class DANSTransfer
         CommandLineParser parser = new PosixParser();
         Options options = new Options();
 
-        options.addOption("i", "item", true, "item id (not handle) for datapackage item to transfer; supply this or -b");
-        options.addOption("b", "bag", true, "path to bag file to deposit; supply this or -i");
+        options.addOption("i", "item", true, "item id (not handle) for datapackage item to transfer; supply this or -b or -a");
+        options.addOption("b", "bag", true, "path to bag file to deposit; supply this or -i or -a");
+        options.addOption("a", "all", false, "do all undeposited items; supply this or -i or -b");
 
         options.addOption("t", "temp", true, "local temp directory for assembling bags and zips");
         options.addOption("k", "keep", false, "specify this if you want the script to leave the zip file behind after exit");
@@ -36,6 +37,8 @@ public class DANSTransfer
         options.addOption("d", "deposit", false, "both package and deposit the content; supply this or -p");
 
         CommandLine line = parser.parse(options, argv);
+
+        boolean all = line.hasOption("a");
 
         int id = -1;
         if (line.hasOption("i"))
@@ -49,15 +52,29 @@ public class DANSTransfer
         {
             bagPath = line.getOptionValue("b");
         }
-        if (id == -1 && bagPath == null)
+
+        if (id == -1 && bagPath == null && !all)
         {
-            System.out.println("You must specify either -i or -b");
+            System.out.println("You must specify either -i, -b or -a");
             DANSTransfer.printHelp(options);
             System.exit(0);
         }
-        if (id > -1 && bagPath != null)
+        int argCount = 0;
+        if (all)
         {
-            System.out.println("You may only specify one of -i or -b");
+            argCount++;
+        }
+        if (id > -1)
+        {
+            argCount++;
+        }
+        if (bagPath != null)
+        {
+            argCount++;
+        }
+        if (argCount > 1)
+        {
+            System.out.println("You may only specify one of -i, -b or -a");
             DANSTransfer.printHelp(options);
             System.exit(0);
         }
@@ -97,6 +114,11 @@ public class DANSTransfer
         {
             System.out.println("Bag processing requested");
             dt.doBag(bagPath);
+        }
+        else if (all)
+        {
+            System.out.println("Process all requested");
+            dt.doAllNew();
         }
     }
 
@@ -163,10 +185,11 @@ public class DANSTransfer
         this.keepZip = keepZip;
     }
 
-    public void doTransfer()
+    public void doAllNew()
             throws SQLException, Exception
     {
-        ItemIterator ii = TransferDAO.transferQueue(this.context);
+        log.info("Processing all items that have not previously been transferred");
+        TransferIterator ii = TransferDAO.transferQueue(this.context);
         while (ii.hasNext()) {
             Item item = ii.next();
             this.doItem(item);
