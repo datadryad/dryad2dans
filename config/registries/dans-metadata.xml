@@ -12,4 +12,14 @@
         <element>dansTransferDate</element>
     </dc-type>
 
+    <dc-type>
+        <schema>dryad</schema>
+        <element>dansEditIRI</element>
+    </dc-type>
+
+    <dc-type>
+        <schema>dryad</schema>
+        <element>dansTransferFailed</element>
+    </dc-type>
+
 </dspace-dc-types>
