@@ -20,9 +20,7 @@ import java.sql.SQLException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
-import java.util.ResourceBundle;
 import java.util.Set;
-import java.util.logging.SimpleFormatter;
 
 public class DANSTransfer
 {
@@ -345,6 +343,8 @@ public class DANSTransfer
             // we're doing a continued deposit
             DepositReceipt receipt = null;
             FileSegmentIterator fsi = bag.getSegmentIterator(this.maxChunkSize, true);
+            String seIRI = null;
+
             int i = 1;
             while (fsi.hasNext())
             {
@@ -360,22 +360,39 @@ public class DANSTransfer
 
                 AuthCredentials auth = new AuthCredentials(this.dansUsername, this.dansPassword);
 
-                // FIXME: only the first deposit is done to the collection, the other deposits need to be done to the SE-IRI
                 SWORDClient client = new SWORDClient();
-                try
+                if (i == 1)
                 {
-                    receipt = client.deposit(this.dansCollection, dep, auth);
+                    try
+                    {
+                        receipt = client.deposit(this.dansCollection, dep, auth);
+                        seIRI = receipt.getEditLink().getIRI().toString();
+                    }
+                    catch (SWORDError e)
+                    {
+                        throw new DANSTransferException(e);
+                    }
                 }
-                catch (SWORDError e)
+                else
                 {
-                    System.out.println(fsis.getMd5());
-                    throw new DANSTransferException(e);
+                    if (seIRI == null)
+                    {
+                        throw new DANSTransferException("Initial deposit of continued deposit did not supply an SE-IRI; cannot continue");
+                    }
+                    try
+                    {
+                        DepositReceipt continued = client.addToContainer(seIRI, dep, auth);
+                    }
+                    catch (SWORDError e)
+                    {
+                        throw new DANSTransferException(e);
+                    }
                 }
 
                 i++;
             }
 
-            // return just the last receipt
+            // return the original receipt
             return receipt;
         }
         else
@@ -427,8 +444,6 @@ public class DANSTransfer
         Date now = new Date();
         SimpleDateFormat sdf = new SimpleDateFormat("YYYY-MM-dd'T'HH:mm:ss.SSSZ");
         String transferDate = sdf.format(now);
-
-        SWORDError se = (SWORDError) e.getCause();
 
         String provenance = "Data Package deposit to DANS failed at " + transferDate;
         log.error(provenance);
