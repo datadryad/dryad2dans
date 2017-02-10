@@ -1,0 +1,13 @@
+# Email sent to DSpace admin when a DANS deposit fails
+#
+# Parameters: {0} the stack trace
+#             {1} the item id
+#
+# See org.dspace.core.Email for information on the format of this file.
+#
+Subject: Dryad - Problem with a DANS deposit
+A DANS deposit was not successfully completed, due to the following reason:
+
+{1}
+
+The item id is {2}
