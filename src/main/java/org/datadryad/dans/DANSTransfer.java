@@ -5,16 +5,24 @@ import org.apache.log4j.Logger;
 import org.datadryad.api.DryadDataFile;
 import org.datadryad.api.DryadDataPackage;
 import org.datadryad.dansbagit.*;
+import org.dspace.authorize.AuthorizeException;
 import org.dspace.content.*;
 import org.dspace.core.ConfigurationManager;
 import org.dspace.core.Context;
+import org.dspace.core.Email;
+import org.dspace.core.I18nUtil;
 import org.dspace.storage.bitstore.BitstreamStorageManager;
 import org.swordapp.client.*;
 
-import java.io.File;
-import java.io.InputStream;
+import javax.mail.MessagingException;
+import java.io.*;
 import java.sql.SQLException;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Locale;
+import java.util.ResourceBundle;
 import java.util.Set;
+import java.util.logging.SimpleFormatter;
 
 public class DANSTransfer
 {
@@ -170,6 +178,7 @@ public class DANSTransfer
         // partially testable
         try {
             this.context = new Context();
+            this.context.setIgnoreAuthorization(true);
         }
         catch (NoClassDefFoundError e) {
             System.out.println("Context failed to initialise");
@@ -215,19 +224,40 @@ public class DANSTransfer
     public void doDataPackage(DryadDataPackage ddp)
             throws Exception
     {
+        DANSBag bag = null;
         log.info("Processing DryadDataPackage with id " + Integer.toString(ddp.getItem().getID()));
-        DANSBag bag = this.packageItem(ddp);
-        if (this.enableDeposit)
+        try
         {
-            log.info("Depositing DryadDataPackage with id " + Integer.toString(ddp.getItem().getID()));
-            this.deposit(bag);
+            bag = this.packageItem(ddp);
+            if (this.enableDeposit)
+            {
+                log.info("Depositing DryadDataPackage with id " + Integer.toString(ddp.getItem().getID()));
+                try
+                {
+                    DepositReceipt receipt = this.deposit(bag);
+                    this.recordDeposit(ddp.getItem(), receipt);
+                }
+                catch (DANSTransferException e)
+                {
+                    this.recordError(ddp.getItem(), e);
+                    this.sendErrorEmail(ddp.getItem(), e);
+                }
+
+            }
         }
-        log.info("Cleaning working directory " + bag.getWorkingDir());
-        bag.cleanupWorkingDir();
-        if (!this.keepZip)
+        finally
         {
-            log.info("Cleaning zip file " + bag.getZipPath());
-            bag.cleanupZip();
+            if (bag != null)
+            {
+                log.info("Cleaning working directory " + bag.getWorkingDir());
+                bag.cleanupWorkingDir();
+                if (!this.keepZip)
+                {
+                    log.info("Cleaning zip file " + bag.getZipPath());
+                    bag.cleanupZip();
+                }
+            }
+            this.context.commit();
         }
     }
 
@@ -371,5 +401,58 @@ public class DANSTransfer
                 throw new DANSTransferException(e);
             }
         }
+    }
+
+    public void recordDeposit(Item item, DepositReceipt receipt)
+            throws SQLException, AuthorizeException
+    {
+        Date now = new Date();
+        SimpleDateFormat sdf = new SimpleDateFormat("YYYY-MM-dd'T'HH:mm:ss.SSSZ");
+        String transferDate = sdf.format(now);
+
+        String editIRI = receipt.getEditLink().getIRI().toString();
+
+        String provenance = "Data Package successfully deposited to DANS at " + transferDate + ".  SWORDv2 identifier for item in DANS is " + editIRI;
+        log.info(provenance);
+
+        item.addMetadata("dryad", "dansTransferDate", null, null, transferDate);
+        item.addMetadata("dryad", "dansEditIRI", null, null, editIRI);
+        item.addMetadata("dc", "description", "provenance", null, provenance);
+        item.update();
+    }
+
+    public void recordError(Item item, DANSTransferException e)
+            throws SQLException, AuthorizeException
+    {
+        Date now = new Date();
+        SimpleDateFormat sdf = new SimpleDateFormat("YYYY-MM-dd'T'HH:mm:ss.SSSZ");
+        String transferDate = sdf.format(now);
+
+        SWORDError se = (SWORDError) e.getCause();
+
+        String provenance = "Data Package deposit to DANS failed at " + transferDate;
+        log.error(provenance);
+
+        item.addMetadata("dryad", "dansTransferFailed", null, null, transferDate);
+        item.addMetadata("dc", "description", "provenance", null, provenance);
+        item.update();
+    }
+
+    public void sendErrorEmail(Item item, DANSTransferException e)
+            throws IOException, MessagingException
+    {
+        StringWriter sw = new StringWriter();
+        PrintWriter pw = new PrintWriter(sw);
+        e.printStackTrace(pw);
+        String trace = sw.toString();
+
+        String to = ConfigurationManager.getProperty("dans", "dans.errorEmail");
+
+        Locale locale = I18nUtil.getDefaultLocale();
+        Email email = ConfigurationManager.getEmail(I18nUtil.getEmailFilename(locale, "dans_deposit_error"));
+        email.addArgument(trace);
+        email.addArgument(Integer.toString(item.getID()));
+        email.addRecipient(to);
+        email.send();
     }
 }
