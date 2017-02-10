@@ -110,3 +110,13 @@ http://localhost:9999/handle/10255/dryad.20
 
 https://github.com/DANS-KNAW/easy-sword2
 https://github.com/DANS-KNAW/easy-sword2-dans-examples
+
+# Tunnel from Vagrant machine to host machine
+
+For example:
+
+    vagrant ssh -- -R 12345:localhost:8080
+    
+Tunnel's the vagrant machine's port 12345 to the host machine's port 8080
+
+If using this to tunnel out to easy-sword2 on the host machine, ensure you update dans.cfg to point to the correct port.
