@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ddm:DDM xmlns:ddm="http://easy.dans.knaw.nl/schemas/md/ddm/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcx-dai="http://easy.dans.knaw.nl/schemas/dcx/dai/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:id-type="http://easy.dans.knaw.nl/schemas/vocab/identifier-type/">
+    <ddm:profile>
+        <ddm:created>2007-02</ddm:created>
+        <dc:title>Data from: Testing for unequal rates of morphological diversification in the absence of a detailed phylogeny: a case study from characiform fishes</dc:title>
+        <dcterms:description>This study develops the random phylogenies rate test (RAPRATE), a likelihood method that simulates morphological evolution along randomly generated phylogenies, and uses it to determine whether a considerable difference in morphological diversity between two sister clades of South American fishes should be taken as evidence of differing rates of morphological change or lineage turnover. Despite identical ages of origin, similar species richness, and sympatric geographic distributions, the morphological and ecological diversity of the superfamily Anostomoidea exceeds that of the Curimatoidea. The test shows with 90% confidence (using variance among species as the measure of morphological diversity) or 99% confidence (using volume of occupied morphospace) that the rate of morphological change per unit time in the Anostomoidea likely exceeded that of the Curimatoidea. Variation in the rate of lineage turnover (speciation and extinction rates) is not found to affect greatly the morphological diversity of simulated clades and is not a likely explanation of the observed difference in morphological diversity in this case study. Though a 17% or greater delay in the onset of diversification in the Curimatoidea remains a possible alternative explanation of unequal morphological diversification, further simulations suggest that two clades drawn from the possible treespace of the Anostomoidea and Curimatoidea will rarely differ so greatly in the onset of diversification. Several uniquely derived morphological and ecological features of the Anostomoidea and Curimatoidea may have accelerated or decelerated their rate of morphological change, including a marked lengthening of the quadrate that may have relaxed structural constraints on the evolution of the anostomoid jaw.</dcterms:description>
+        <dc:creator>Sidlauskas, Brian</dc:creator>
+    </ddm:profile>
+    <ddm:dcmiMetadata>
+        <dcterms:identifier xsi:type="id-type:DOI">doi:10.5061/dryad.20</dcterms:identifier>
+        <dcterms:hasPart>doi:10.5061/dryad.20/1</dcterms:hasPart>
+        <dcterms:hasPart>doi:10.5061/dryad.20/2</dcterms:hasPart>
+        <dcterms:hasPart>doi:10.5061/dryad.20/3</dcterms:hasPart>
+        <dcterms:isReferencedBy>doi:10.1111/j.1558-5646.2007.00022.x</dcterms:isReferencedBy>
+        <dcterms:isReferencedBy>PMID:17348941</dcterms:isReferencedBy>
+    </ddm:dcmiMetadata>
+</ddm:DDM>
+
+
