@@ -1,3 +1,52 @@
+# Server setup
+
+On Ubuntu 14.04
+
+    adduser dryad
+    usermod -aG sudo dryad
+    su - dryad
+
+    sudo apt-get install virtualbox
+    sudo apt-get install vagrant
+    sudo apt-get install git
+    sudo apt-get install unzip
+    
+    git clone https://github.com/ansible/ansible.git
+    cd ansible
+    git checkout a50d1ea
+    
+    cd ..
+    git clone https://github.com/daisieh/vagrant-dryad.git
+    cd vagrant-dryad/
+    git checkout java8
+    
+    cp ansible-dryad/group_vars/all.template ansible-dryad/group_vars/all
+    vim ansible-dryad/group_vars/all
+    
+Insert the following configuration values
+
+    dryad:
+        repo: git@github.com:CottageLabs/dryad-repo.git
+        
+    db:
+        password: password
+    testdb:
+        password: password
+
+Continue with the installation:
+
+    cd
+    wget https://releases.hashicorp.com/packer/0.11.0/packer_0.11.0_linux_amd64.zip
+    unzip packer_0.11.0_linux_amd64.zip
+    mkdir bin
+    mv packer bin/
+    source .profile
+    
+    cd vagrant-dryad/packer-templates/ubuntu-12.04/
+    sh vagrant-box-dryad.sh
+    
+    
+
 # Outline of test data
 
 **typical item**
