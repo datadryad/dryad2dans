@@ -22,10 +22,19 @@ import java.util.Date;
 import java.util.Locale;
 import java.util.Set;
 
+/**
+ * Main class for controlling transfer of content from Dryad to DANS
+ */
 public class DANSTransfer
 {
     private static Logger log = Logger.getLogger(DANSTransfer.class);
 
+    /**
+     * Command line invocation target.  Run without arguments for help text
+     *
+     * @param argv
+     * @throws Exception
+     */
     public static void main(String[] argv)
             throws Exception
     {
@@ -137,25 +146,54 @@ public class DANSTransfer
     /** DSpace Context object */
     private Context context;
 
+    /** parent directory in which to create export working directories and zip files */
     private String tempDir = null;
 
+    /** username to authenticate with DANS */
     private String dansUsername = null;
+
+    /** password to authenticate with DANS */
     private String dansPassword = null;
+
+    /** Target SWORDv2 deposit collection URI */
     private String dansCollection = null;
+
+    /** packaging format to annotate zip files with */
     private String dansPackaging = null;
+
+    /** Chunk size for continued deposits, in bytes */
     private long maxChunkSize = -1;
 
+    /** whether the class should actually carry out the deposit */
     private boolean enableDeposit = true;
+
+    /** whether the created zip file should be retained after execution */
     private boolean keepZip = false;
 
+    /**
+     * Construct an instance of this class around the given temporary directory.  All other parameters will default
+     * or be drawn from configuration.
+     *
+     * @param tempDir   directory in which all bagit working directories and zip files will be created
+     * @throws SQLException if thrown by DSpace
+     */
     public DANSTransfer(String tempDir)
-            throws Exception
+        throws SQLException
     {
         this(tempDir, true, false);
     }
 
+    /**
+     * Construct an instance of this class around the given temporary directory, with deposit and keepZip set as required.
+     * All other properties are set from configuration
+     *
+     * @param tempDir  directory in which all bagit working directories and zip files will be created
+     * @param enableDeposit whether to carry out the deposit or not
+     * @param keepZip   whether to keep the zip file after execution
+     * @throws SQLException if thrown by DSpace
+     */
     public DANSTransfer(String tempDir, boolean enableDeposit, boolean keepZip)
-            throws Exception
+            throws SQLException
     {
         this(tempDir,
                 ConfigurationManager.getProperty("dans", "dans.sword.username"),
@@ -167,8 +205,21 @@ public class DANSTransfer
                 keepZip);
     }
 
+    /**
+     * Construct an instance of this class around the given parameters.
+     *
+     * @param tempDir  directory in which all bagit working directories and zip files will be created
+     * @param username  username to authenticate with DANS
+     * @param password  password to authenticate with DANS
+     * @param collection    collection URI to deposit to
+     * @param packaging     package identifier to send along with deposit
+     * @param maxChunkSize  chunk size for continued deposit, or -1 not to use continued deposit
+     * @param enableDeposit whether to carry out the deposit or not
+     * @param keepZip   whether to keep the zip file after execution
+     * @throws SQLException if thrown by DSpace
+     */
     public DANSTransfer(String tempDir, String username, String password, String collection, String packaging, long maxChunkSize, boolean enableDeposit, boolean keepZip)
-            throws Exception
+            throws SQLException
     {
         this.tempDir = tempDir;
 
@@ -192,8 +243,15 @@ public class DANSTransfer
         this.keepZip = keepZip;
     }
 
+    /**
+     * Process all the items in Dryad that need to be transferred to DANS.  See TransferDAO for details on how
+     * the list of items is determined.
+     *
+     * @throws SQLException
+     * @throws Exception
+     */
     public void doAllNew()
-            throws SQLException, Exception
+            throws IOException, SQLException, AuthorizeException, MessagingException
     {
         log.info("Processing all items that have not previously been transferred");
         TransferIterator ii = TransferDAO.transferQueue(this.context);
@@ -203,24 +261,51 @@ public class DANSTransfer
         }
     }
 
+    /**
+     * Process a specific item by item ID.  ID should resolve to an item that is a Dryad Data Package
+     *
+     * param id     DSpace Item ID
+     * @throws IOException
+     * @throws SQLException
+     * @throws AuthorizeException
+     * @throws MessagingException
+     */
     public void doItem(int id)
-            throws Exception
+            throws IOException, SQLException, AuthorizeException, MessagingException
     {
         log.info("Processing item by id " + Integer.toString(id));
         Item datapackage = Item.find(this.context, id);
         this.doItem(datapackage);
     }
 
+    /**
+     * Process a specific item.  Item should be a Dryad Data Package
+     *
+     * @param datapackage   DSpace Item
+     * @throws IOException
+     * @throws SQLException
+     * @throws AuthorizeException
+     * @throws MessagingException
+     */
     public void doItem(Item datapackage)
-            throws Exception
+            throws IOException, SQLException, AuthorizeException, MessagingException
     {
         log.info("Processing item object with id " + Integer.toString(datapackage.getID()));
         DryadDataPackage ddp = new DryadDataPackage(datapackage);
         this.doDataPackage(ddp);
     }
 
+    /**
+     * Process a sepcific DryadDataPackage
+     *
+     * @param ddp   the Dryad Data Package
+     * @throws IOException
+     * @throws SQLException
+     * @throws AuthorizeException
+     * @throws MessagingException
+     */
     public void doDataPackage(DryadDataPackage ddp)
-            throws Exception
+            throws IOException, SQLException, AuthorizeException, MessagingException
     {
         DANSBag bag = null;
         log.info("Processing DryadDataPackage with id " + Integer.toString(ddp.getItem().getID()));
@@ -259,13 +344,28 @@ public class DANSTransfer
         }
     }
 
+    /**
+     * Process an individual bag file
+     *
+     * No implementation needed for this yet, may be removed
+     *
+     * @param path
+     */
     public void doBag(String path)
     {
         // TODO
     }
 
+    /**
+     * Take a DryadDataPackage and generate a zip and corresponding DANSBag object, in preparation for deposit
+     *
+     * @param ddp   the DryadDataPackage to bag
+     * @return  an instance of a DANSBag, where the zip file has already been written to disk for you using DANSBag.writeFile
+     * @throws IOException
+     * @throws SQLException
+     */
     public DANSBag packageItem(DryadDataPackage ddp)
-            throws Exception
+            throws IOException, SQLException
     {
         Item item = ddp.getItem();
         log.info("Packaging item with id " + Integer.toString(item.getID()));
@@ -334,8 +434,18 @@ public class DANSTransfer
         return bag;
     }
 
+    /**
+     * Deposit the bag represented by the DANSBag instance into DANS.
+     *
+     * Depending on the configuration of this DANSTransfer instance, this will deposit the entire zip as a single
+     * request, or the chunks of the zip at suitable chunk sizes as a continued deposit.
+     *
+     * @param bag   DANSBag object, already with the zip written to disk
+     * @return  the sword DepositReceipt
+     * @throws DANSTransferException
+     */
     public DepositReceipt deposit(DANSBag bag)
-            throws Exception
+            throws DANSTransferException, IOException
     {
         // work out if we're doing this in one hit, or as a continued deposit
         if (bag.size() > this.maxChunkSize && this.maxChunkSize != -1)
@@ -372,6 +482,14 @@ public class DANSTransfer
                     {
                         throw new DANSTransferException(e);
                     }
+                    catch (SWORDClientException e)
+                    {
+                        throw new DANSTransferException(e);
+                    }
+                    catch (ProtocolViolationException e)
+                    {
+                        throw new DANSTransferException(e);
+                    }
                 }
                 else
                 {
@@ -384,6 +502,14 @@ public class DANSTransfer
                         DepositReceipt continued = client.addToContainer(seIRI, dep, auth);
                     }
                     catch (SWORDError e)
+                    {
+                        throw new DANSTransferException(e);
+                    }
+                    catch (SWORDClientException e)
+                    {
+                        throw new DANSTransferException(e);
+                    }
+                    catch (ProtocolViolationException e)
                     {
                         throw new DANSTransferException(e);
                     }
@@ -417,9 +543,27 @@ public class DANSTransfer
             {
                 throw new DANSTransferException(e);
             }
+            catch (SWORDClientException e)
+            {
+                throw new DANSTransferException(e);
+            }
+            catch (ProtocolViolationException e)
+            {
+                throw new DANSTransferException(e);
+            }
         }
     }
 
+    /**
+     * Record a successful deposit as represented by the DepositReceipt on the given DSpace Item
+     *
+     * This adds provenance metadata and datestamps for tracking.
+     *
+     * @param item  the DSpace Item successfully deposited.  Should be a Dryad Data Package
+     * @param receipt   the SWORDv2 DepositReceipt for the successful deposit
+     * @throws SQLException
+     * @throws AuthorizeException
+     */
     public void recordDeposit(Item item, DepositReceipt receipt)
             throws SQLException, AuthorizeException
     {
@@ -438,6 +582,14 @@ public class DANSTransfer
         item.update();
     }
 
+    /**
+     * Record a failed deposit as represented by the DANS transfer exception
+     *
+     * @param item  The DSpace Item which failed to deposit
+     * @param e the exception for the failure
+     * @throws SQLException
+     * @throws AuthorizeException
+     */
     public void recordError(Item item, DANSTransferException e)
             throws SQLException, AuthorizeException
     {
@@ -453,6 +605,14 @@ public class DANSTransfer
         item.update();
     }
 
+    /**
+     * Send an email to the Dryad administrator in the event of a deposit error
+     *
+     * @param item The DSpace Item which failed to deposit
+     * @param e the exception for the failure
+     * @throws IOException
+     * @throws MessagingException
+     */
     public void sendErrorEmail(Item item, DANSTransferException e)
             throws IOException, MessagingException
     {
@@ -463,11 +623,14 @@ public class DANSTransfer
 
         String to = ConfigurationManager.getProperty("dans", "dans.errorEmail");
 
-        Locale locale = I18nUtil.getDefaultLocale();
-        Email email = ConfigurationManager.getEmail(I18nUtil.getEmailFilename(locale, "dans_deposit_error"));
-        email.addArgument(trace);
-        email.addArgument(Integer.toString(item.getID()));
-        email.addRecipient(to);
-        email.send();
+        if (to != null)
+        {
+            Locale locale = I18nUtil.getDefaultLocale();
+            Email email = ConfigurationManager.getEmail(I18nUtil.getEmailFilename(locale, "dans_deposit_error"));
+            email.addArgument(trace);
+            email.addArgument(Integer.toString(item.getID()));
+            email.addRecipient(to);
+            email.send();
+        }
     }
 }

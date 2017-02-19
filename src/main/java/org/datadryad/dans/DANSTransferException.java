@@ -1,5 +1,8 @@
 package org.datadryad.dans;
 
+/**
+ * Exception class for handling errors during transfer to DANS
+ */
 public class DANSTransferException extends Exception
 {
     public DANSTransferException()

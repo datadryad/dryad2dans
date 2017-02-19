@@ -7,8 +7,12 @@ import org.dspace.content.Item;
 import java.util.HashMap;
 import java.util.Map;
 
+/**
+ * Class which knows how to convert a DSpace Item's metadata to the DANS DDM format (and back again)
+ */
 public class DDMXWalk
 {
+    /** field mappings in the profile section of DDM */
     private static final Map<String, String> profile;
     static
     {
@@ -19,6 +23,7 @@ public class DDMXWalk
         profile.put("ddm:created", "dc.date.issued");
     }
 
+    /** field mappings in the dcmi section of DDM */
     private static final Map<String, String> dcmi;
     static
     {
@@ -28,6 +33,7 @@ public class DDMXWalk
         dcmi.put("dcterms:isReferencedBy", "dc.relation.isreferencedby");
     }
 
+    /** additional attributes to be applied for specific dcmi fields */
     private static final Map<String, Map<String, String>> dcmiAttrs;
     static
     {
@@ -38,6 +44,12 @@ public class DDMXWalk
         dcmiAttrs.put("dcterms:identifier", identAttrs);
     }
 
+    /**
+     * Convert a DSpace Item's metadata into a DDM object for later serialisation
+     *
+     * @param item  The DSpace Item
+     * @return  an instance of the DDM class which can be added to the DANSBag
+     */
     public DDM makeDDM(Item item)
     {
         DDM ddm = new DDM();
@@ -68,5 +80,15 @@ public class DDMXWalk
         }
 
         return ddm;
+    }
+
+    /**
+     * Take a DDM object and use the data theirin to populate a DSpace Item
+     * @param item
+     * @param ddm
+     */
+    public void populateItem(Item item, DDM ddm)
+    {
+        // TODO
     }
 }

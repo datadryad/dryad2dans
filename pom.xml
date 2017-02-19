@@ -27,7 +27,7 @@
             <groupId>junit</groupId>
             <artifactId>junit</artifactId>
             <version>4.8.2</version>    <!-- DSpace uses 4.1, so tests may not execute in that context -->
-            <scope>test</scope>
+            <!-- <scope>test</scope> -->
         </dependency>
 
         <dependency>
