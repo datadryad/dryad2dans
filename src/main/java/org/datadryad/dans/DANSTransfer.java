@@ -230,7 +230,8 @@ public class DANSTransfer
             this.context.setIgnoreAuthorization(true);
         }
         catch (NoClassDefFoundError e) {
-            System.out.println("Context failed to initialise");
+            log.info("Context failed to initialised - you're probably testing outside DSpace");
+            // System.out.println("Context failed to initialise");
         }
 
         this.dansUsername = username;
@@ -467,6 +468,7 @@ public class DANSTransfer
                 dep.setFilename(bag.getZipName() + "." + Integer.toString(i));
                 dep.setFile(fsis);
                 dep.setInProgress(fsi.hasNext());
+                dep.setContentLength(fsis.getContentLength());
 
                 AuthCredentials auth = new AuthCredentials(this.dansUsername, this.dansPassword);
 
@@ -477,6 +479,7 @@ public class DANSTransfer
                     {
                         receipt = client.deposit(this.dansCollection, dep, auth);
                         seIRI = receipt.getEditLink().getIRI().toString();
+                        log.info("Got Edit IRI " + seIRI);
                     }
                     catch (SWORDError e)
                     {
@@ -500,6 +503,7 @@ public class DANSTransfer
                     try
                     {
                         DepositReceipt continued = client.addToContainer(seIRI, dep, auth);
+                        log.info("Successfully deposited next segment");
                     }
                     catch (SWORDError e)
                     {
@@ -530,6 +534,7 @@ public class DANSTransfer
             dep.setMd5(bag.getMD5());
             dep.setFilename(bag.getZipName());
             dep.setFile(bag.getInputStream());
+            dep.setContentLength(bag.size());
 
             AuthCredentials auth = new AuthCredentials(this.dansUsername, this.dansPassword);
 
@@ -537,6 +542,8 @@ public class DANSTransfer
             try
             {
                 DepositReceipt receipt = client.deposit(this.dansCollection, dep, auth);
+                String seIRI = receipt.getEditLink().getIRI().toString();
+                log.info("Got Edit IRI " + seIRI);
                 return receipt;
             }
             catch (SWORDError e)
