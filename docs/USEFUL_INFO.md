@@ -45,7 +45,23 @@ Continue with the installation:
     cd vagrant-dryad/packer-templates/ubuntu-12.04/
     sh vagrant-box-dryad.sh
     
-    
+
+# Vagrant box layout
+
+Dryad source (git):     /home/ubuntu/dryad-repo
+Dryad installation:     /opt/dryad
+Tomcat home:            /home/ubuntu/dryad-tomcat
+
+1. Build dryad          /home/ubuntu/bin/build_dryad.sh
+2. Deploy dryad         /home/ubuntu/bin/deploy_dryad.sh
+3. Install database     /home/ubuntu/bin/install_dryad_database.sh
+4. Start tomcat         /home/ubuntu/dryad-tomcat/bin/startup.sh
+5. Rebuild SOLR indexes /home/ubuntu/bin/build_indexes.sh
+
+Once Dryad is running, it can be updated and redeployed with:
+
+/home/ubuntu/bin/redeploy_dryad.sh
+
 
 # Outline of test data
 
@@ -154,6 +170,18 @@ for that Data Package.
 # Example data packages
 
 http://localhost:9999/handle/10255/dryad.20
+
+http://localhost:9999/handle/10255/dryad.95765
+
+http://localhost:9999/handle/10255/dryad.37901
+
+http://localhost:9999/handle/10255/dryad.7990
+
+http://localhost:9999/handle/10255/dryad.134790
+
+http://localhost:9999/handle/10255/dryad.1295
+
+http://localhost:9999/handle/10255/dryad.106309
 
 # Easy SWORD2
 

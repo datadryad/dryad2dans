@@ -106,6 +106,30 @@ and to keep the package around after, using /home/ubuntu/temp as the working dir
 To process all due deposits into packages, and keep the packages (don't do this in normal operation):
 
     ./dspace dsrun org.datadryad.dans.DANSTransfer -a -p -t /home/ubuntu/temp -k
-    
+
+To deposit a single item into the repository, cleaning up fully afterwards:
 
     ./dspace dsrun org.datadryad.dans.DANSTransfer -i 21 -d -t /home/ubuntu/temp
+    
+To deposit all due deposits into the repository, cleaning up fully afterwards (this will be the command you'll set as a cron job):
+
+    ./dspace dsrun org.datadryad.dans.DANSTransfer -a -d -t /home/ubuntu/temp
+    
+    
+## Managing DANS Transfer Metadata
+
+The command line script can be run with:
+
+    ./dspace dsrun org.datadryad.dans.TransferControl
+    
+If you run this on its own it will output the help:
+
+    usage: TransferControl
+     -i,--item    item id (not handle) for datapackage item to transfer;
+                  supply this or -a
+     -a,--all     do all items; supply this or -i
+     -c,--clean   request a clean of the metadata for the appropriate items
+     
+For example, to cleanup the DANS metadata from a single item, use:
+
+    ./dspace dsrun org.datadryad.dans.TransferControl -i 21 -c
