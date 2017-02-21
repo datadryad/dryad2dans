@@ -23,8 +23,14 @@ public class TransferDAO
     public static TransferIterator transferQueue(Context context)
             throws SQLException
     {
-        Collection col = Collection.find(context, 2);
-        ItemIterator ii = col.getAllItems();
+        ItemIterator ii = TransferDAO.dataPackages(context);
         return new TransferIterator(ii);
+    }
+
+    public static ItemIterator dataPackages(Context context)
+        throws SQLException
+    {
+        Collection col = Collection.find(context, 2);
+        return col.getAllItems();
     }
 }
