@@ -479,7 +479,9 @@ public class DANSTransfer
                     {
                         receipt = client.deposit(this.dansCollection, dep, auth);
                         seIRI = receipt.getEditLink().getIRI().toString();
+                        String stateIRI = receipt.getAtomStatementLink().getIRI().toString();
                         log.info("Got Edit IRI " + seIRI);
+                        log.info("Got State IRI " + stateIRI);
                     }
                     catch (SWORDError e)
                     {
@@ -543,7 +545,9 @@ public class DANSTransfer
             {
                 DepositReceipt receipt = client.deposit(this.dansCollection, dep, auth);
                 String seIRI = receipt.getEditLink().getIRI().toString();
+                String stateIRI = receipt.getAtomStatementLink().getIRI().toString();
                 log.info("Got Edit IRI " + seIRI);
+                log.info("Got State IRI " + stateIRI);
                 return receipt;
             }
             catch (SWORDError e)
