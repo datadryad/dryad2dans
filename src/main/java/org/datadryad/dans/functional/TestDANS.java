@@ -14,6 +14,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
+
 /**
  * WARNING: these tests are functional, they require an operating easy-sword2 endpoint
  * in order to work, and you may need to modify the paths/values used in the tests for them to work
@@ -71,7 +72,9 @@ public class TestDANS
                 "http://localhost:8080/easy-sword2/collection/1",
                 "http://purl.org/net/sword/package/BagIt",
                 -1,
-                true,
+                true,   // package
+                true,   // deposit
+                false,  // don't monitor
                 true);  // make sure we keep the bag, as this is a test resource
         DANSBag bag = new DANSBag("testbag", zipPath, workingDir);
         DepositReceipt receipt = dt.deposit(bag);
@@ -93,7 +96,9 @@ public class TestDANS
                 "http://localhost:8080/easy-sword2/collection/1",
                 "http://purl.org/net/sword/package/BagIt",
                 1000,
-                true,
+                true,   // package
+                true,   // deposit
+                false,  // don't monitor
                 true);  // make sure we keep the bag, as this is a test resource
         DANSBag bag = new DANSBag("testbag", zipPath, workingDir);
         DepositReceipt receipt = dt.deposit(bag);
@@ -114,9 +119,37 @@ public class TestDANS
                 "http://localhost:8080/easy-sword2/collection/1",
                 "http://purl.org/net/sword/package/BagIt",
                 -1,
-                true,
-                true);    // make sure we keep the bag, as this is a test resource
+                true,   // package
+                true,   // deposit
+                false,  // don't monitor
+                true);  // make sure we keep the bag, as this is a test resource
         DANSBag bag = new DANSBag("real", zipPath, workingDir);
         DepositReceipt receipt = dt.deposit(bag);
+    }
+
+    @Test
+    public void testSendDANS()
+            throws Exception
+    {
+        String workingDir = System.getProperty("user.dir") + "/src/test/resources/working/testreal";
+        this.cleanup.add(workingDir);
+
+        String zipPath = System.getProperty("user.dir") + "/src/test/resources/bags/21.zip";
+
+        DANSTransfer dt = new DANSTransfer(workingDir,
+                "INSERT YOUR USERNAME",
+                "INSERT YOUR PASSWORD",
+                "https://act.easy.dans.knaw.nl/sword2/collection/1",
+                "http://purl.org/net/sword/package/BagIt",
+                -1,
+                true,   // package
+                true,   // deposit
+                false,  // don't monitor
+                true);  // make sure we keep the bag, as this is a test resource
+        DANSBag bag = new DANSBag("real", zipPath, workingDir);
+        DepositReceipt receipt = dt.deposit(bag);
+
+        receipt.getEntry().writeTo(System.out);
+        // System.out.println(receipt.getEditLink());
     }
 }
