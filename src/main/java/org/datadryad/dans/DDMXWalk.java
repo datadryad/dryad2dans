@@ -18,9 +18,14 @@ public class DDMXWalk
     {
         profile = new HashMap<String, String>();
         profile.put("dc:title", "dc.title");
-        profile.put("dcterms:description", "dc.description");
+        profile.put("dc:description", "dc.description");
         profile.put("dc:creator", "dc.contributor.author");
         profile.put("ddm:created", "dc.date.issued");
+
+        // what's missing from here?
+        // profile.put("ddm:available", "????"); // when the record becomes available (e.g. end of embargo)
+        // profile.put("ddm:audience", "????"); // narcis DisciplineType classification
+        // profile.put("ddm:accessRights", "????") // one of a controlled list of allowed access rights terms (see ddm.xsd)
     }
 
     /** field mappings in the dcmi section of DDM */
