@@ -17,14 +17,13 @@ import java.sql.SQLException;
  * which have been successfully deposited once will not be transferred again.
  *
  */
-public class TransferIterator extends SelectiveIterator
+public class MonitorIterator extends SelectiveIterator
 {
-
     /**
      * Create an instance of the TransferIterator around a given ItemIterator
      * @param ii    A DSpace ItemIterator
      */
-    public TransferIterator(ItemIterator ii)
+    public MonitorIterator(ItemIterator ii)
     {
         super(ii);
     }
@@ -43,10 +42,11 @@ public class TransferIterator extends SelectiveIterator
         while (this.itemIterator.hasNext())
         {
             Item item = this.itemIterator.next();
-            DCValue[] dcvs = item.getMetadata("dryad.dansTransferDate");
+            DCValue[] tds = item.getMetadata("dryad.dansTransferDate");
+            DCValue[] ads = item.getMetadata("dryad.dansArchiveDate");
+            DCValue[] fds = item.getMetadata("dryad.dansProcessingFailed");
 
-            // if there is no transfer date, then this is the next item
-            if (dcvs.length == 0)
+            if (tds.length > 0 && ads.length == 0 && fds.length == 0)
             {
                 this.nextItem = item;
                 return true;

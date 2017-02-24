@@ -27,6 +27,13 @@ public class TransferDAO
         return new TransferIterator(ii);
     }
 
+    public static MonitorIterator monitorQueue(Context context)
+            throws SQLException
+    {
+        ItemIterator ii = TransferDAO.dataPackages(context);
+        return new MonitorIterator(ii);
+    }
+
     public static ItemIterator dataPackages(Context context)
         throws SQLException
     {
