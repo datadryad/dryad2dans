@@ -2,6 +2,7 @@ package org.datadryad.dans;
 
 import org.apache.commons.cli.*;
 import org.apache.log4j.Logger;
+import org.apache.log4j.lf5.util.Resource;
 import org.datadryad.api.DryadDataFile;
 import org.datadryad.api.DryadDataPackage;
 import org.datadryad.dansbagit.*;
@@ -19,6 +20,7 @@ import java.io.*;
 import java.sql.SQLException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 
@@ -50,6 +52,7 @@ public class DANSTransfer
 
         options.addOption("p", "package", false, "only package the content, do not deposit; supply this or -d");
         options.addOption("d", "deposit", false, "both package and deposit the content; supply this or -p");
+        options.addOption("m", "monitor", false, "monitor one or all items that need it and record any success or fail states");
 
         CommandLine line = parser.parse(options, argv);
 
@@ -97,28 +100,29 @@ public class DANSTransfer
         boolean keep = line.hasOption("k");
         boolean dep = line.hasOption("d");
         boolean pack = line.hasOption("p");
+        boolean monitor = line.hasOption("m");
 
-        if (!(dep || pack))
+        if (!(dep || pack || monitor))
         {
-            System.out.println("You must specify one of -d or -p");
+            System.out.println("You must specify one of -d, -p or -m");
             DANSTransfer.printHelp(options);
             System.exit(0);
         }
-        if (dep && pack)
+        if (dep && pack || dep && monitor || pack && monitor)
         {
-            System.out.println("You may only specify one of -d or -p");
-            DANSTransfer.printHelp(options);
-            System.exit(0);
-        }
-
-        if (!line.hasOption("t"))
-        {
-            System.out.println("You must specify a temporary working directory with -t");
+            System.out.println("You may only specify one of -d, -p or -m");
             DANSTransfer.printHelp(options);
             System.exit(0);
         }
 
-        DANSTransfer dt = new DANSTransfer(line.getOptionValue("t"), dep, keep);
+        if ((dep || pack) && !line.hasOption("t"))
+        {
+            System.out.println("You must specify a temporary working directory with -t when using -d or -p");
+            DANSTransfer.printHelp(options);
+            System.exit(0);
+        }
+
+        DANSTransfer dt = new DANSTransfer(line.getOptionValue("t"), pack, dep, monitor, keep);
 
         if (id > -1)
         {
@@ -133,7 +137,14 @@ public class DANSTransfer
         else if (all)
         {
             System.out.println("Process all requested");
-            dt.doAllNew();
+            if (dep)
+            {
+                dt.doAllNew();
+            }
+            else if (monitor)
+            {
+                dt.doAllMonitoring();
+            }
         }
     }
 
@@ -164,8 +175,12 @@ public class DANSTransfer
     /** Chunk size for continued deposits, in bytes */
     private long maxChunkSize = -1;
 
+    private boolean pack = true;
+
     /** whether the class should actually carry out the deposit */
     private boolean enableDeposit = true;
+
+    private boolean monitor = false;
 
     /** whether the created zip file should be retained after execution */
     private boolean keepZip = false;
@@ -180,7 +195,7 @@ public class DANSTransfer
     public DANSTransfer(String tempDir)
         throws SQLException
     {
-        this(tempDir, true, false);
+        this(tempDir, true, true, false, false);
     }
 
     /**
@@ -192,7 +207,7 @@ public class DANSTransfer
      * @param keepZip   whether to keep the zip file after execution
      * @throws SQLException if thrown by DSpace
      */
-    public DANSTransfer(String tempDir, boolean enableDeposit, boolean keepZip)
+    public DANSTransfer(String tempDir, boolean pack, boolean enableDeposit, boolean monitor, boolean keepZip)
             throws SQLException
     {
         this(tempDir,
@@ -201,7 +216,9 @@ public class DANSTransfer
                 ConfigurationManager.getProperty("dans", "dans.collection"),
                 ConfigurationManager.getProperty("dans", "dans.packaging"),
                 ConfigurationManager.getLongProperty("dans", "dans.max.chunk.size"),
+                pack,
                 enableDeposit,
+                monitor,
                 keepZip);
     }
 
@@ -218,7 +235,7 @@ public class DANSTransfer
      * @param keepZip   whether to keep the zip file after execution
      * @throws SQLException if thrown by DSpace
      */
-    public DANSTransfer(String tempDir, String username, String password, String collection, String packaging, long maxChunkSize, boolean enableDeposit, boolean keepZip)
+    public DANSTransfer(String tempDir, String username, String password, String collection, String packaging, long maxChunkSize, boolean pack, boolean enableDeposit, boolean monitor, boolean keepZip)
             throws SQLException
     {
         this.tempDir = tempDir;
@@ -240,7 +257,9 @@ public class DANSTransfer
         this.dansPackaging = packaging;
         this.maxChunkSize = maxChunkSize;
 
+        this.pack = pack;
         this.enableDeposit = enableDeposit;
+        this.monitor = monitor;
         this.keepZip = keepZip;
     }
 
@@ -256,6 +275,17 @@ public class DANSTransfer
     {
         log.info("Processing all items that have not previously been transferred");
         TransferIterator ii = TransferDAO.transferQueue(this.context);
+        while (ii.hasNext()) {
+            Item item = ii.next();
+            this.doItem(item);
+        }
+    }
+
+    public void doAllMonitoring()
+            throws IOException, SQLException, AuthorizeException, MessagingException
+    {
+        log.info("Processing all items that have been transferred but not yet archived");
+        MonitorIterator ii = TransferDAO.monitorQueue(this.context);
         while (ii.hasNext()) {
             Item item = ii.next();
             this.doItem(item);
@@ -312,7 +342,14 @@ public class DANSTransfer
         log.info("Processing DryadDataPackage with id " + Integer.toString(ddp.getItem().getID()));
         try
         {
-            bag = this.packageItem(ddp);
+            // if we've been asked to package OR deposit the item
+            if (this.pack || this.enableDeposit)
+            {
+                log.info("Packaging DryadDataPackage with id " + Integer.toString(ddp.getItem().getID()));
+                bag = this.packageItem(ddp);
+            }
+
+            // if we've been asked to deposit the item
             if (this.enableDeposit)
             {
                 log.info("Depositing DryadDataPackage with id " + Integer.toString(ddp.getItem().getID()));
@@ -323,10 +360,23 @@ public class DANSTransfer
                 }
                 catch (DANSTransferException e)
                 {
-                    this.recordError(ddp.getItem(), e);
+                    this.recordDepositError(ddp.getItem(), e);
                     this.sendErrorEmail(ddp.getItem(), e);
                 }
+            }
 
+            // if we've been asked to monitor the item
+            if (this.monitor)
+            {
+                try
+                {
+                    this.updateStatus(ddp.getItem());
+                }
+                catch (DANSTransferException e)
+                {
+                    this.recordStateError(ddp.getItem(), null);
+                    this.sendErrorEmail(ddp.getItem(), e);
+                }
             }
         }
         finally
@@ -565,6 +615,67 @@ public class DANSTransfer
         }
     }
 
+    public void updateStatus(Item item)
+            throws DANSTransferException, SQLException, AuthorizeException, MessagingException, IOException
+    {
+        DCValue[] dcvs = item.getMetadata("dryad.dansEditIRI");
+        if (dcvs.length == 0)
+        {
+            log.info("Item with id " + Integer.toString(item.getID()) + " did not contain an Edit IRI - cannot update status");
+            return;
+        }
+
+        String editIRI = dcvs[0].value;
+
+        AuthCredentials auth = new AuthCredentials(this.dansUsername, this.dansPassword);
+        SWORDClient client = new SWORDClient();
+        try
+        {
+            DepositReceipt receipt = client.getDepositReceipt(editIRI, auth);
+            Statement statement = client.getStatement(receipt, "application/atom+xml;type=feed", auth);
+            if (statement == null)
+            {
+                String msg = "No Atom Statement was available in the DANS Deposit Receipt under " + editIRI;
+                this.recordStateError(item, msg);
+                this.sendErrorEmail(item, msg);
+                return;
+            }
+
+            List<ResourceState> states = statement.getState();
+            for (ResourceState state : states)
+            {
+                String term = state.getIri().toString();
+                if ("INVALID".equals(term) || "REJECTED".equals(term) || "FAILED".equals(term))
+                {
+                    this.recordStateError(item, state.getDescription());
+                    this.sendErrorEmail(item, state.getDescription());
+                    return;
+                }
+                else if ("ARCHIVED".equals(term))
+                {
+                    this.recordStateArchived(item);
+                    return;
+                }
+            }
+        }
+        catch (SWORDError e)
+        {
+            throw new DANSTransferException(e);
+        }
+        catch (SWORDClientException e)
+        {
+            throw new DANSTransferException(e);
+        }
+        catch (ProtocolViolationException e)
+        {
+            throw new DANSTransferException(e);
+        }
+        catch (StatementParseException e)
+        {
+            throw new DANSTransferException(e);
+        }
+    }
+
     /**
      * Record a successful deposit as represented by the DepositReceipt on the given DSpace Item
      *
@@ -584,7 +695,7 @@ public class DANSTransfer
 
         String editIRI = receipt.getEditLink().getIRI().toString();
 
-        String provenance = "Data Package successfully deposited to DANS at " + transferDate + ".  SWORDv2 identifier for item in DANS is " + editIRI;
+        String provenance = "Data Package successfully transferred to DANS at " + transferDate + ".  SWORDv2 identifier for item in DANS is " + editIRI;
         log.info(provenance);
 
         item.addMetadata("dryad", "dansTransferDate", null, null, transferDate);
@@ -601,17 +712,51 @@ public class DANSTransfer
      * @throws SQLException
      * @throws AuthorizeException
      */
-    public void recordError(Item item, DANSTransferException e)
+    public void recordDepositError(Item item, DANSTransferException e)
             throws SQLException, AuthorizeException
     {
         Date now = new Date();
         SimpleDateFormat sdf = new SimpleDateFormat("YYYY-MM-dd'T'HH:mm:ss.SSSZ");
         String transferDate = sdf.format(now);
 
-        String provenance = "Data Package deposit to DANS failed at " + transferDate;
+        String provenance = "Data Package transfer to DANS failed at " + transferDate;
         log.error(provenance);
 
         item.addMetadata("dryad", "dansTransferFailed", null, null, transferDate);
+        item.addMetadata("dc", "description", "provenance", null, provenance);
+        item.update();
+    }
+
+    public void recordStateError(Item item, String msg)
+            throws SQLException, AuthorizeException
+    {
+        Date now = new Date();
+        SimpleDateFormat sdf = new SimpleDateFormat("YYYY-MM-dd'T'HH:mm:ss.SSSZ");
+        String failedDate = sdf.format(now);
+
+        String provenance = "Data Package processing by DANS recorded as failed at " + failedDate;
+        if (msg != null)
+        {
+            provenance += " with message " + msg;
+        }
+        log.error(provenance);
+
+        item.addMetadata("dryad", "dansProcessingFailed", null, null, failedDate);
+        item.addMetadata("dc", "description", "provenance", null, provenance);
+        item.update();
+    }
+
+    public void recordStateArchived(Item item)
+            throws SQLException, AuthorizeException
+    {
+        Date now = new Date();
+        SimpleDateFormat sdf = new SimpleDateFormat("YYYY-MM-dd'T'HH:mm:ss.SSSZ");
+        String archiveDate = sdf.format(now);
+
+        String provenance = "Data Package successfully archived by DANS at " + archiveDate;
+        log.info(provenance);
+
+        item.addMetadata("dryad", "dansArchiveDate", null, null, archiveDate);
         item.addMetadata("dc", "description", "provenance", null, provenance);
         item.update();
     }
@@ -632,13 +777,19 @@ public class DANSTransfer
         e.printStackTrace(pw);
         String trace = sw.toString();
 
+        this.sendErrorEmail(item, trace);
+    }
+
+    public void sendErrorEmail(Item item, String msg)
+            throws IOException, MessagingException
+    {
         String to = ConfigurationManager.getProperty("dans", "dans.errorEmail");
 
         if (to != null)
         {
             Locale locale = I18nUtil.getDefaultLocale();
             Email email = ConfigurationManager.getEmail(I18nUtil.getEmailFilename(locale, "dans_deposit_error"));
-            email.addArgument(trace);
+            email.addArgument(msg);
             email.addArgument(Integer.toString(item.getID()));
             email.addRecipient(to);
             email.send();
