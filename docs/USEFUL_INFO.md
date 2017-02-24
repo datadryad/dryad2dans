@@ -1,3 +1,6 @@
+This document contains odds-and-ends of useful information, mostly in note form, to help in working with development
+on this library.  It might not all be relevant for your particular environment.
+
 # Server setup
 
 On Ubuntu 14.04

@@ -1,5 +1,9 @@
 <?xml version="1.0"?>
 
+<!--
+ - You need to import this file into your DSpace metadata registry in order to have the
+ - correct fields available for tracking the deposit state
+-->
 <dspace-dc-types>
 
     <dc-schema>
