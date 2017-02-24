@@ -175,6 +175,8 @@ public class TransferControl
         DCValue[] editiri = item.getMetadata("dryad.dansEditIRI");
         DCValue[] tdate = item.getMetadata("dryad.dansTransferDate");
         DCValue[] fdate = item.getMetadata("dryad.dansTransferFailed");
+        DCValue[] sfdate = item.getMetadata("dryad.dansProcessingFailed");
+        DCValue[] adate = item.getMetadata("dryad.dansArchiveDate");
 
         boolean mod = false;
         if (editiri != null && editiri.length > 0)
@@ -190,6 +192,16 @@ public class TransferControl
         if (fdate != null && fdate.length > 0)
         {
             item.clearMetadata("dryad.dansTransferFailed");
+            mod = true;
+        }
+        if (sfdate != null && sfdate.length > 0)
+        {
+            item.clearMetadata("dryad.dansProcessingFailed");
+            mod = true;
+        }
+        if (adate != null && adate.length > 0)
+        {
+            item.clearMetadata("dryad.dansArchiveDate");
             mod = true;
         }
 
