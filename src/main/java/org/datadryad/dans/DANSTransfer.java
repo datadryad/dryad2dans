@@ -137,7 +137,7 @@ public class DANSTransfer
         else if (all)
         {
             System.out.println("Process all requested");
-            if (dep)
+            if (dep || pack)
             {
                 dt.doAllNew();
             }
@@ -624,6 +624,10 @@ public class DANSTransfer
             log.info("Item with id " + Integer.toString(item.getID()) + " did not contain an Edit IRI - cannot update status");
             return;
         }
+        if (dcvs.length > 1)
+        {
+            log.info("Item with id " + Integer.toString(item.getID()) + " contained more than one Edit IRI - please reduce this to exactly one");
+        }
 
         String editIRI = dcvs[0].value;
 
@@ -655,6 +659,10 @@ public class DANSTransfer
                 {
                     this.recordStateArchived(item);
                     return;
+                }
+                else
+                {
+                    log.info("Item " + Integer.toString(item.getID()) + " has status " + term + " in DANS - no action required at this stage");
                 }
             }
         }
