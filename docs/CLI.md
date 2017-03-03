@@ -57,6 +57,9 @@ To monitor a single item in DANS, and update the item metadata if necessary, use
 
     ./dspace dsrun org.datadryad.dans.DANSTransfer -i 21 -m
 
+To monitor all pending items, and update thier metadata if necessary, use:
+
+    ./dspace dsrun org.datadryad.dans.DANSTransfer -a -m
 
 ## Managing DANS Transfer Metadata
 
@@ -76,6 +79,6 @@ For example, to cleanup the DANS metadata from a single item, use:
 
     ./dspace dsrun org.datadryad.dans.TransferControl -i 21 -c
     
-To cleanup the DANS metadata from all items use:
+DO NOT DO THIS UNLESS YOU REALLY MEAN IT: To cleanup the DANS metadata from all items use:
 
     ./dspace dsrun org.datadryad.dans.TransferControl -a -c
