@@ -82,3 +82,25 @@ For example, to cleanup the DANS metadata from a single item, use:
 DO NOT DO THIS UNLESS YOU REALLY MEAN IT: To cleanup the DANS metadata from all items use:
 
     ./dspace dsrun org.datadryad.dans.TransferControl -a -c
+    
+    
+## Recovery from DANS packages
+
+To re-import an item from a bag file, you can use
+
+    ./dspace dsrun org.datadryad.dans.DANSRecover
+    
+If you run this on its own it will output the help:
+
+    usage: DANSRecover
+     -d,--dryrun   whether to do a dry-run import
+     -b,--bag      path to bag file to import
+     -t,--temp     temporary working directory to use when unpacking the bag
+     
+To do a dry-run import of an item (i.e. don't actually import the item) use something like:
+
+    ./dspace dsrun org.datadryad.dans.DANSRecover -d -b /home/ubuntu/21.zip -t /home/ubuntu/import-temp/
+    
+To do this without the dry-run:
+
+    ./dspace dsrun org.datadryad.dans.DANSRecover -b /home/ubuntu/21.zip -t /home/ubuntu/import-temp/
