@@ -4,6 +4,9 @@ import org.datadryad.dansbagit.DIM;
 import org.dspace.content.DCValue;
 import org.dspace.content.Item;
 
+import java.util.List;
+import java.util.Map;
+
 /**
  * Class which knows how to convert DSpace Item metadata into a DIM object (and back again)
  */
@@ -33,6 +36,13 @@ public class DIMXWalk
      */
     public void populateItem(Item item, DIM dim)
     {
-        // TODO
+        for (String field : dim.listDSpaceFields())
+        {
+            for (String value : dim.getDSpaceFieldValues(field))
+            {
+                Map<String, String> fieldBits = dim.fieldBits(field);
+                item.addMetadata(fieldBits.get("mdschema"), fieldBits.get("element"), fieldBits.get("qualifier"), null, value);
+            }
+        }
     }
 }
