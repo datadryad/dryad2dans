@@ -24,7 +24,14 @@ You also need the DANS BagIt library installed, which can be got from here:
     cd dans-bagit
     mvn install
 
-And the JavaClient2.0 for SWORD, which can be got from here
+The JavaClient2.0 for SWORD requires a GPG key. If you do not already have one, you must generate one:
+
+    sudo apt-get install rng-tools
+    sudo rngd -r /dev/urandom
+    gpg --gen-key
+    (select all of the default options)
+
+Then, install the JavaClient2.0 for SWORD:
 
     git clone https://github.com/swordapp/JavaClient2.0.git
     cd JavaClient2.0
