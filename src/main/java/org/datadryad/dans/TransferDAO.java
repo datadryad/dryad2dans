@@ -38,6 +38,6 @@ public class TransferDAO
         throws SQLException
     {
         Collection col = Collection.find(context, 2);
-        return col.getAllItems();
+        return col.getItems();
     }
 }
