@@ -44,7 +44,8 @@ public class DANSTransfer
         Options options = new Options();
 
         options.addOption("i", "item", true, "item id (not handle) for datapackage item to transfer; supply this or -b or -a");
-        options.addOption("b", "bag", true, "path to bag file to deposit; supply this or -i or -a");
+        // The b option was never fully implemented
+        // options.addOption("b", "bag", true, "path to bag file to deposit; supply this or -i or -a.");
         options.addOption("a", "all", false, "do all undeposited items; supply this or -i or -b");
 
         options.addOption("t", "temp", true, "local temp directory for assembling bags and zips");
