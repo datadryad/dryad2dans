@@ -80,7 +80,12 @@ public class DDMXWalk
                 {
                     attrs = dcmiAttrs.get(dcmiField);
                 }
-                ddm.addDCMIField(dcmiField, dcv.value, attrs);
+                if(dcmiField.equals("dcterms:identifier") && dcv.value.startsWith("doi:")) {
+                    ddm.addDCMIField(dcmiField, dcv.value.substring("doi:".length()), attrs);
+                } else {
+                    ddm.addDCMIField(dcmiField, dcv.value, attrs);
+                }
+                    
             }
         }
 
