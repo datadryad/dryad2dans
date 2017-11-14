@@ -13,6 +13,7 @@ import org.dspace.core.Context;
 import org.dspace.core.Email;
 import org.dspace.core.I18nUtil;
 import org.dspace.storage.bitstore.BitstreamStorageManager;
+import org.dspace.versioning.VersionHistory;
 import org.swordapp.client.*;
 
 import javax.mail.MessagingException;
@@ -438,7 +439,8 @@ public class DANSTransfer
 
         // put all of the item metadata in a DIM record
         DIMXWalk dimXwalk = new DIMXWalk();
-        DIM dim = dimXwalk.makeDIM(item);
+        VersionHistory history = ddp.getVersionHistory(this.context);
+        DIM dim = dimXwalk.makeDIM(item, history);
         bag.setDatasetDIM(dim);
 
         // put some item metadata in the DDM record
@@ -477,7 +479,7 @@ public class DANSTransfer
                 }
             }
 
-            DIM dfDim = dimXwalk.makeDIM(df);
+            DIM dfDim = dimXwalk.makeDIM(df, null);
             bag.addDatafileDIM(dfDim, dfIdent);
         }
 

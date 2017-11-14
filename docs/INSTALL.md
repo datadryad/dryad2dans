@@ -11,12 +11,8 @@ into your local maven repository in order to be able to compile this library:
     cd [dspace-source]/dspace/target/dspace-1.7.3-SNAPSHOT-build.dir/lib
         
     mvn install:install-file -Dfile=dspace-api-1.7.3-SNAPSHOT.jar -DgroupId=org.dspace -DartifactId=dspace-api -Dversion=1.7.3-SNAPSHOT -Dpackaging=jar
-
-You then also need to install the org.dspace.modules:api:1.7.3-SNAPSHOT artefact as follows:
-
-    cd [dspace-source]/dspace/target/dspace-1.7.3-SNAPSHOT-build.dir/lib
-    
     mvn install:install-file -Dfile=api-1.7.3-SNAPSHOT.jar -DgroupId=org.dspace.modules -DartifactId=api -Dversion=1.7.3-SNAPSHOT -Dpackaging=jar
+    mvn install:install-file -Dfile=versioning-api-1.7.3-SNAPSHOT.jar -DgroupId=org.dspace.modules -DartifactId=versioning-api -Dversion=1.7.3-SNAPSHOT -Dpackaging=jar
 
 You also need the DANS BagIt library installed, which can be got from here:
 
