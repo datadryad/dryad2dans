@@ -20,7 +20,7 @@ public class DDMXWalk
         profile.put("dc:title", "dc.title");
         profile.put("dc:description", "dc.description");
         profile.put("dc:creator", "dc.contributor.author");
-        profile.put("ddm:created", "dc.date.issued");
+        profile.put("ddm:created", "dc.date.accessioned");
 
         // what's missing from here?
         // profile.put("ddm:available", "????"); // when the record becomes available (e.g. end of embargo)
