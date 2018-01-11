@@ -1,5 +1,6 @@
 package org.datadryad.dans;
 
+import org.apache.log4j.Logger;
 import org.datadryad.dansbagit.DIM;
 import org.dspace.content.DCValue;
 import org.dspace.content.Item;
@@ -15,6 +16,8 @@ import java.util.*;
  */
 public class DIMXWalk
 {
+    private static Logger log = Logger.getLogger(DIMXWalk.class);
+
     /**
      * Convert a DSpace Item's metadata into the DIM object for later serialisation
      *
@@ -23,6 +26,8 @@ public class DIMXWalk
      */
     public DIM makeDIM(Item item, VersionHistory history)
     {
+	DCValue[] dansIDs = null;
+	String dansEditIRI = null;
         DIM dim = new DIM();
         DCValue[] dcvs = item.getMetadata(Item.ANY, Item.ANY, Item.ANY, Item.ANY);
         for (DCValue dcv : dcvs)
@@ -46,15 +51,36 @@ public class DIMXWalk
                  
             Version origVer = history.getFirstVersion();
             Item origItem = origVer.getItem();
+
+	    dansIDs = origItem.getMetadata("dryad.dansEditIRI");
+	    if (dansIDs.length > 0) {
+		dansEditIRI = dansIDs[0].value;
+	    }
+
             idents = origItem.getMetadata("dc.identifier");
             if (idents.length > 0) {
                 String origDOI = idents[0].value;
                 if(!currentDOI.equals(origDOI)) {
                     dim.addField("dc", "relation", "isversionof", origDOI);
+
                 }
             }
+	}
 
-        }
+	// If a version of this item has been sent to DANS before, 
+	// either this particular item, OR an earlier Dryad version,
+	// add a dryad.DANSidentifier, so this will be marked as a new 
+	// version in the DANS version chain. 
+	dansIDs = item.getMetadata("dryad.dansEditIRI");
+	if (dansIDs.length > 0) {
+	    dansEditIRI = dansIDs[0].value;
+	}
+	if (dansEditIRI != null && dansEditIRI.length() > 0) {
+	    // https://act.easy.dans.knaw.nl/sword2/container/7ad10055-bf08-4e5b-96ad-361f7277c957
+	    int containerIndex = dansEditIRI.indexOf("/container/");
+	    String dansID = dansEditIRI.substring(containerIndex + "/container/".length());
+	    dim.addField("dryad", "DANSidentifier", null, dansID);	    
+	}
         
         return dim;
     }
