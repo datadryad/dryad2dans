@@ -6,8 +6,9 @@ import org.dspace.content.Item;
 import org.dspace.versioning.Version;
 import org.dspace.versioning.VersionHistory;
 
-import java.util.List;
-import java.util.Map;
+import java.text.SimpleDateFormat;
+import java.util.*;
+
 
 /**
  * Class which knows how to convert DSpace Item metadata into a DIM object (and back again)
@@ -29,6 +30,13 @@ public class DIMXWalk
             dim.addField(dcv.schema, dcv.element, dcv.qualifier, dcv.value);
         }
         
+	// add item's last modified date (since it isn't part of normal DSpace metadata)
+	Date lastModified = item.getLastModified();
+	SimpleDateFormat sdf = new SimpleDateFormat("YYYY-MM-dd'T'HH:mm:ss.SSSX");
+        String lastModifiedString = sdf.format(lastModified);
+	dim.addField("dc", "date", "lastModified", lastModifiedString);
+
+	// add versioning information
         if(history != null) {
             DCValue[] idents = item.getMetadata("dc.identifier");
             String currentDOI = "";
