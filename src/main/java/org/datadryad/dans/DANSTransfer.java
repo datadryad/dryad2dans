@@ -629,43 +629,41 @@ public class DANSTransfer
         }
         if (dcvs.length > 1)
         {
-            log.info("Item with id " + Integer.toString(item.getID()) + " contained more than one Edit IRI - please reduce this to exactly one");
+            log.warn("Item with id " + Integer.toString(item.getID()) + " contained more than one Edit IRI - please reduce this to exactly one");
         }
-
-        String editIRI = dcvs[0].value;
 
         AuthCredentials auth = new AuthCredentials(this.dansUsername, this.dansPassword);
         SWORDClient client = new SWORDClient();
         try
         {
-            DepositReceipt receipt = client.getDepositReceipt(editIRI, auth);
-            Statement statement = client.getStatement(receipt, "application/atom+xml;type=feed", auth);
-            if (statement == null)
-            {
-                String msg = "No Atom Statement was available in the DANS Deposit Receipt under " + editIRI;
-                this.recordStateError(item, msg);
-                this.sendErrorEmail(item, msg);
-                return;
-            }
+            // iterate over all IRIs in the item (though normally there will only be one)
+            for(int iriIndex = 0; iriIndex < dcvs.length; iriIndex++) {
+                String editIRI = dcvs[iriIndex].value;
+                DepositReceipt receipt = client.getDepositReceipt(editIRI, auth);
+                Statement statement = client.getStatement(receipt, "application/atom+xml;type=feed", auth);
+                
+                if (statement == null) {
+                        String msg = "No Atom Statement was available in the DANS Deposit Receipt under " + editIRI;
+                        this.recordStateError(item, msg);
+                        this.sendErrorEmail(item, msg);
+                        // if there is no statement for this IRI, still loop and check other IRIs
+                        continue;
+                }
 
-            List<ResourceState> states = statement.getState();
-            for (ResourceState state : states)
-            {
-                String term = state.getIri().toString();
-                if ("INVALID".equals(term) || "REJECTED".equals(term) || "FAILED".equals(term))
-                {
-                    this.recordStateError(item, state.getDescription());
-                    this.sendErrorEmail(item, state.getDescription());
-                    return;
-                }
-                else if ("ARCHIVED".equals(term))
-                {
-                    this.recordStateArchived(item);
-                    return;
-                }
-                else
-                {
-                    log.info("Item " + Integer.toString(item.getID()) + " has status " + term + " in DANS - no action required at this stage");
+                List<ResourceState> states = statement.getState();
+
+                for (ResourceState state : states) {
+                    String term = state.getIri().toString();
+                    if ("INVALID".equals(term) || "REJECTED".equals(term) || "FAILED".equals(term)) {
+                        this.recordStateError(item, state.getDescription());
+                        this.sendErrorEmail(item, state.getDescription());
+                    } else if ("ARCHIVED".equals(term)) {
+                        this.recordStateArchived(item, editIRI);
+                        // if the item is archived, there is no need to check further IRIs
+                        return;
+                    } else {
+                        log.info("Item " + Integer.toString(item.getID()) + " has status " + term + " in DANS - no action required at this stage");
+                    }
                 }
             }
         }
@@ -757,14 +755,14 @@ public class DANSTransfer
         item.update();
     }
 
-    public void recordStateArchived(Item item)
+    public void recordStateArchived(Item item, String iri)
             throws SQLException, AuthorizeException
     {
         Date now = new Date();
         SimpleDateFormat sdf = new SimpleDateFormat("YYYY-MM-dd'T'HH:mm:ss.SSSZ");
         String archiveDate = sdf.format(now);
 
-        String provenance = "Data Package successfully archived by DANS at " + archiveDate;
+        String provenance = "Data Package successfully archived by DANS at " + archiveDate + ", " + iri;
         log.info(provenance);
 
         item.addMetadata("dryad", "dansArchiveDate", null, null, archiveDate);

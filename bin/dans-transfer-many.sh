@@ -1,5 +1,11 @@
+# Transfers a list of items to DANS
 
-echo Transferring item to DANS...
+# It is assumed that the list of items is stored in a 
+# file in the current directory called items.txt,
+# with one item ID per line.
+
+echo Transferring items to DANS...
+
 set -e
 
 while read item; do
