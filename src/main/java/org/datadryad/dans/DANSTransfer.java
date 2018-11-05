@@ -268,18 +268,20 @@ public class DANSTransfer
     /**
      * Process all the items in Dryad that need to be transferred to DANS.  See TransferDAO for details on how
      * the list of items is determined.
-     *
-     * @throws SQLException
-     * @throws Exception
      */
     public void doAllNew()
-            throws IOException, SQLException, AuthorizeException, MessagingException
     {
         log.info("Processing all items that have not previously been transferred");
         TransferIterator ii = TransferDAO.transferQueue(this.context);
         while (ii.hasNext()) {
             Item item = ii.next();
-            this.doItem(item);
+            try {
+                this.doItem(item);
+            } catch (Exception e) {
+                // if there is an error processing any single item, skip it
+                // and continue to transfer remaining items
+                log.error("Unable to transfer item to DANS. Item ID = " item.getID(), e);
+            }
         }
     }
 
