@@ -270,6 +270,7 @@ public class DANSTransfer
      * the list of items is determined.
      */
     public void doAllNew()
+        throws IOException, SQLException, AuthorizeException, MessagingException
     {
         log.info("Processing all items that have not previously been transferred");
         TransferIterator ii = TransferDAO.transferQueue(this.context);
@@ -280,7 +281,7 @@ public class DANSTransfer
             } catch (Exception e) {
                 // if there is an error processing any single item, skip it
                 // and continue to transfer remaining items
-                log.error("Unable to transfer item to DANS. Item ID = " item.getID(), e);
+                log.error("Unable to transfer item to DANS. Item ID = " + item.getID(), e);
             }
         }
     }
