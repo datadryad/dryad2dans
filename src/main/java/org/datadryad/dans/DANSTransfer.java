@@ -732,7 +732,7 @@ public class DANSTransfer
         String transferDate = sdf.format(now);
 
         String provenance = "Data Package transfer to DANS failed at " + transferDate;
-        log.error(provenance);
+        log.error(provenance, e);
 
         item.addMetadata("dryad", "dansTransferFailed", null, null, transferDate);
         item.addMetadata("dc", "description", "provenance", null, provenance);

@@ -52,6 +52,11 @@ public class DIMXWalk
             Version origVer = history.getFirstVersion();
             Item origItem = origVer.getItem();
 
+            DCValue[] origArchive = origItem.getMetadata("dryad.dansArchiveDate");
+            if(origArchive.length == 0) {
+                throw new RuntimeException("Original version of " + currentDOI + " was not archived in DANS, so we cannot process the current version.");
+            }
+            
 	    dansIDs = origItem.getMetadata("dryad.dansEditIRI");
 	    if (dansIDs.length > 0) {
 		dansEditIRI = dansIDs[0].value;
