@@ -60,6 +60,7 @@ public class DANSTransfer
         boolean all = line.hasOption("a");
 
         Context context = new Context();
+        context.setIgnoreAuthorization(true);
         
         int id = -1;
         if (line.hasOption("i")) {

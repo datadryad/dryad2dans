@@ -9,6 +9,7 @@ echo "Setting items as archived in DANS..."
 set -e
 
 while read item; do
+    echo "Setting as archived in DANS... $item"
     # Perform the transfer
     sudo /opt/dryad/bin/dspace dsrun org.datadryad.dans.DANSTransfer -i $item -s
 done <archived-items.txt
