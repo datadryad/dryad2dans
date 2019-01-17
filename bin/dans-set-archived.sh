@@ -7,7 +7,7 @@
 echo "Setting item as archived in DANS..."
 set -e
 
-sudo /opt/dryad/bin/dspace dsrun org.datadryad.dans.DANSTransfer -i $1 -a
+sudo /opt/dryad/bin/dspace dsrun org.datadryad.dans.DANSTransfer -i $1 -s
 
 echo
 
