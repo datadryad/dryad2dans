@@ -44,10 +44,8 @@ public class DANSTransfer
         CommandLineParser parser = new PosixParser();
         Options options = new Options();
 
-        options.addOption("i", "item", true, "item id (not handle) for datapackage item to transfer; supply this or -b or -a");
-        // The b option was never fully implemented
-        // options.addOption("b", "bag", true, "path to bag file to deposit; supply this or -i or -a.");
-        options.addOption("a", "all", false, "do all undeposited items; supply this or -i or -b");
+        options.addOption("i", "item", true, "item id or DOI (not handle) for datapackage item to transfer; supply this or -a");
+        options.addOption("a", "all", false, "do all undeposited items; supply this or -i");
 
         options.addOption("t", "temp", true, "local temp directory for assembling bags and zips");
         options.addOption("k", "keep", false, "specify this if you want the script to leave the zip file behind after exit");
@@ -55,46 +53,53 @@ public class DANSTransfer
         options.addOption("p", "package", false, "only package the content, do not deposit; supply this or -d");
         options.addOption("d", "deposit", false, "both package and deposit the content; supply this or -p");
         options.addOption("m", "monitor", false, "monitor one or all items that need it and record any success or fail states");
+        options.addOption("s", "setArchived", false, "set an item's state as Archived, e.g., if we learned about it being archived via an email from DANS");
 
         CommandLine line = parser.parse(options, argv);
 
         boolean all = line.hasOption("a");
 
+        Context context = new Context();
+        
         int id = -1;
-        if (line.hasOption("i"))
-        {
+        if (line.hasOption("i")) {
             String idOpt = line.getOptionValue("i");
-            id = Integer.parseInt(idOpt);
+            if(idOpt.startsWith("doi") || idOpt.startsWith("10.")) {
+                // lookup item ID from the DOI
+                if(idOpt.startsWith("10.")) {
+                    idOpt = "doi:" + idOpt;
+                }
+                ItemIterator itemIterator = Item.findByMetadataField(context, "dc", "identifier", null, idOpt, false);
+                while (itemIterator.hasNext()) {
+                    id = itemIterator.next().getID();
+                }
+                log.debug("DOI " + idOpt + " is item " + id);
+            } else {
+                id = Integer.parseInt(idOpt);
+            }
         }
 
-        String bagPath = null;
-        if (line.hasOption("b"))
-        {
-            bagPath = line.getOptionValue("b");
+        if (line.hasOption("s")) {
+            Item datapackage = Item.find(context, id);
+            DryadDataPackage ddp = new DryadDataPackage(datapackage);
+            setArchived(ddp);
+            System.exit(0);
         }
-
-        if (id == -1 && bagPath == null && !all)
-        {
-            System.out.println("You must specify either -i, -b or -a");
+        
+        if (id == -1 && !all) {
+            System.out.println("You must specify either -i or -a");
             DANSTransfer.printHelp(options);
             System.exit(0);
         }
         int argCount = 0;
-        if (all)
-        {
+        if (all) {
             argCount++;
         }
-        if (id > -1)
-        {
+        if (id > -1) {
             argCount++;
         }
-        if (bagPath != null)
-        {
-            argCount++;
-        }
-        if (argCount > 1)
-        {
-            System.out.println("You may only specify one of -i, -b or -a");
+        if (argCount > 1) {
+            System.out.println("You may only specify one of -i or -a");
             DANSTransfer.printHelp(options);
             System.exit(0);
         }
@@ -104,21 +109,18 @@ public class DANSTransfer
         boolean pack = line.hasOption("p");
         boolean monitor = line.hasOption("m");
 
-        if (!(dep || pack || monitor))
-        {
-            System.out.println("You must specify one of -d, -p or -m");
+        if (!(dep || pack || monitor)) {
+            System.out.println("You must specify one of -d, -p, -s, or -m");
             DANSTransfer.printHelp(options);
             System.exit(0);
         }
-        if (dep && pack || dep && monitor || pack && monitor)
-        {
+        if (dep && pack || dep && monitor || pack && monitor) {
             System.out.println("You may only specify one of -d, -p or -m");
             DANSTransfer.printHelp(options);
             System.exit(0);
         }
 
-        if ((dep || pack) && !line.hasOption("t"))
-        {
+        if ((dep || pack) && !line.hasOption("t")) {
             System.out.println("You must specify a temporary working directory with -t when using -d or -p");
             DANSTransfer.printHelp(options);
             System.exit(0);
@@ -126,32 +128,22 @@ public class DANSTransfer
 
         DANSTransfer dt = new DANSTransfer(line.getOptionValue("t"), pack, dep, monitor, keep);
 
-        if (id > -1)
-        {
+        if (id > -1) {
             System.out.println("Item run requested");
             dt.doItem(id);
         }
-        else if (bagPath != null)
-        {
-            System.out.println("Bag processing requested");
-            dt.doBag(bagPath);
-        }
-        else if (all)
-        {
+        else if (all) {
             System.out.println("Process all requested");
-            if (dep || pack)
-            {
+            if (dep || pack) {
                 dt.doAllNew();
             }
-            else if (monitor)
-            {
+            else if (monitor) {
                 dt.doAllMonitoring();
             }
         }
     }
 
-    public static void printHelp(Options options)
-    {
+    public static void printHelp(Options options) {
         HelpFormatter formatter = new HelpFormatter();
         formatter.printHelp("DANSTransfer", options);
     }
@@ -332,6 +324,33 @@ public class DANSTransfer
     }
 
     /**
+       Set a DryadDataPackage to archived status.
+    **/
+    public static void setArchived(DryadDataPackage ddp) {
+        String itemID = ddp.getItem().getID() + "";
+        log.info("Setting archived status on DryadDataPackage with id " + itemID);
+        try {
+            if(isArchived(ddp)) {
+                log.info("item " + itemID + " already has archived status, skipping");
+            } else {
+                recordStateArchived(ddp.getItem(), "no IRI used");
+            }
+        } catch (Exception e) {
+            log.fatal("Unable to set archived status for item " + itemID, e);
+        }
+    }
+
+    private static boolean isArchived(DryadDataPackage ddp) {
+        boolean result = false;
+
+        DCValue[] archFields = ddp.getItem().getMetadata("dryad.dansArchiveDate");
+        if (archFields.length > 0) {
+            result = true;
+        }
+        return result;
+    }
+    
+    /**
      * Process a sepcific DryadDataPackage
      *
      * @param ddp   the Dryad Data Package
@@ -341,75 +360,48 @@ public class DANSTransfer
      * @throws MessagingException
      */
     public void doDataPackage(DryadDataPackage ddp)
-            throws IOException, SQLException, AuthorizeException, MessagingException
-    {
+            throws IOException, SQLException, AuthorizeException, MessagingException {
         DANSBag bag = null;
         log.info("Processing DryadDataPackage with id " + Integer.toString(ddp.getItem().getID()));
-        try
-        {
+        try {
             // if we've been asked to package OR deposit the item
-            if (this.pack || this.enableDeposit)
-            {
+            if (this.pack || this.enableDeposit) {
                 log.info("Packaging DryadDataPackage with id " + Integer.toString(ddp.getItem().getID()));
                 bag = this.packageItem(ddp);
             }
 
             // if we've been asked to deposit the item
-            if (this.enableDeposit)
-            {
+            if (this.enableDeposit) {
                 log.info("Depositing DryadDataPackage with id " + Integer.toString(ddp.getItem().getID()));
-                try
-                {
+                try {
                     DepositReceipt receipt = this.deposit(bag);
                     this.recordDeposit(ddp.getItem(), receipt);
-                }
-                catch (DANSTransferException e)
-                {
+                } catch (DANSTransferException e) {
                     this.recordDepositError(ddp.getItem(), e);
                     this.sendErrorEmail(ddp.getItem(), e);
                 }
             }
 
             // if we've been asked to monitor the item
-            if (this.monitor)
-            {
-                try
-                {
+            if (this.monitor) {
+                try {
                     this.updateStatus(ddp.getItem());
-                }
-                catch (DANSTransferException e)
-                {
+                } catch (DANSTransferException e) {
                     this.recordStateError(ddp.getItem(), null);
                     this.sendErrorEmail(ddp.getItem(), e);
                 }
             }
-        }
-        finally
-        {
-            if (bag != null)
-            {
+        } finally {
+            if (bag != null) {
                 log.info("Cleaning working directory " + bag.getWorkingDir());
                 bag.cleanupWorkingDir();
-                if (!this.keepZip)
-                {
+                if (!this.keepZip) {
                     log.info("Cleaning zip file " + bag.getZipPath());
                     bag.cleanupZip();
                 }
             }
             this.context.commit();
         }
-    }
-
-    /**
-     * Process an individual bag file
-     *
-     * No implementation needed for this yet, may be removed
-     *
-     * @param path
-     */
-    public void doBag(String path)
-    {
-        // TODO
     }
 
     /**
@@ -622,23 +614,20 @@ public class DANSTransfer
     }
 
     public void updateStatus(Item item)
-            throws DANSTransferException, SQLException, AuthorizeException, MessagingException, IOException
-    {
+        throws DANSTransferException, SQLException, AuthorizeException, MessagingException, IOException {
+
         DCValue[] dcvs = item.getMetadata("dryad.dansEditIRI");
-        if (dcvs.length == 0)
-        {
+        if (dcvs.length == 0) {
             log.info("Item with id " + Integer.toString(item.getID()) + " did not contain an Edit IRI - cannot update status");
             return;
         }
-        if (dcvs.length > 1)
-        {
+        if (dcvs.length > 1) {
             log.warn("Item with id " + Integer.toString(item.getID()) + " contained more than one Edit IRI - please reduce this to exactly one");
         }
-
+        
         AuthCredentials auth = new AuthCredentials(this.dansUsername, this.dansPassword);
         SWORDClient client = new SWORDClient();
-        try
-        {
+        try {
             // iterate over all IRIs in the item (though normally there will only be one)
             for(int iriIndex = 0; iriIndex < dcvs.length; iriIndex++) {
                 String editIRI = dcvs[iriIndex].value;
@@ -646,11 +635,11 @@ public class DANSTransfer
                 Statement statement = client.getStatement(receipt, "application/atom+xml;type=feed", auth);
                 
                 if (statement == null) {
-                        String msg = "No Atom Statement was available in the DANS Deposit Receipt under " + editIRI;
-                        this.recordStateError(item, msg);
-                        this.sendErrorEmail(item, msg);
-                        // if there is no statement for this IRI, still loop and check other IRIs
-                        continue;
+                    String msg = "No Atom Statement was available in the DANS Deposit Receipt under " + editIRI;
+                    this.recordStateError(item, msg);
+                    this.sendErrorEmail(item, msg);
+                    // if there is no statement for this IRI, still loop and check other IRIs
+                    continue;
                 }
 
                 List<ResourceState> states = statement.getState();
@@ -669,21 +658,13 @@ public class DANSTransfer
                     }
                 }
             }
-        }
-        catch (SWORDError e)
-        {
+        } catch (SWORDError e) {
             throw new DANSTransferException(e);
-        }
-        catch (SWORDClientException e)
-        {
+        } catch (SWORDClientException e) {
             throw new DANSTransferException(e);
-        }
-        catch (ProtocolViolationException e)
-        {
+        } catch (ProtocolViolationException e) {
             throw new DANSTransferException(e);
-        }
-        catch (StatementParseException e)
-        {
+        } catch (StatementParseException e) {
             throw new DANSTransferException(e);
         }
     }
@@ -698,7 +679,7 @@ public class DANSTransfer
      * @throws SQLException
      * @throws AuthorizeException
      */
-    public void recordDeposit(Item item, DepositReceipt receipt)
+    public static void recordDeposit(Item item, DepositReceipt receipt)
             throws SQLException, AuthorizeException
     {
         Date now = new Date();
@@ -724,7 +705,7 @@ public class DANSTransfer
      * @throws SQLException
      * @throws AuthorizeException
      */
-    public void recordDepositError(Item item, DANSTransferException e)
+    public static void recordDepositError(Item item, DANSTransferException e)
             throws SQLException, AuthorizeException
     {
         Date now = new Date();
@@ -739,7 +720,7 @@ public class DANSTransfer
         item.update();
     }
 
-    public void recordStateError(Item item, String msg)
+    public static void recordStateError(Item item, String msg)
             throws SQLException, AuthorizeException
     {
         Date now = new Date();
@@ -758,7 +739,7 @@ public class DANSTransfer
         item.update();
     }
 
-    public void recordStateArchived(Item item, String iri)
+    public static void recordStateArchived(Item item, String iri)
             throws SQLException, AuthorizeException
     {
         Date now = new Date();
