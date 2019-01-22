@@ -84,6 +84,7 @@ public class DANSTransfer
             Item datapackage = Item.find(context, id);
             DryadDataPackage ddp = new DryadDataPackage(datapackage);
             setArchived(ddp);
+            context.commit();
             System.exit(0);
         }
         
