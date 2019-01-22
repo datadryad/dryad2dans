@@ -71,6 +71,11 @@ public class DANSTransfer
                     idOpt = "doi:" + idOpt;
                 }
                 ItemIterator itemIterator = Item.findByMetadataField(context, "dc", "identifier", null, idOpt, false);
+                if (!itemIterator.hasNext()) {
+                    // it's likely a versioned item, which had its ID captured before versions existed, so we're using the .1 version
+                    log.info("didn't find item " + idOpt + ", so looking for .1 version");
+                    itemIterator = Item.findByMetadataField(context, "dc", "identifier", null, idOpt + ".1", false);
+                }
                 while (itemIterator.hasNext()) {
                     id = itemIterator.next().getID();
                 }
