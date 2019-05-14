@@ -28,9 +28,9 @@ lock || { exit 1; }
 echo "Transferring item to DANS using temp directory $DANS_TEMP"
 
 cd $DANS_TEMP
-sudo /home/ubuntu/dryad2dans/bin/dans-make-item-list.sh > $DANS_TEMP/dansAll-${day}_${hour}.out & 
+/home/ubuntu/dryad2dans/bin/dans-make-item-list.sh > $DANS_TEMP/dansAll-${day}_${hour}.out & 
 sleep 10
-sudo /home/ubuntu/dryad2dans/bin/dans-transfer-many.sh >> $DANS_TEMP/dansAll-${day}_${hour}.out & 
+/home/ubuntu/dryad2dans/bin/dans-transfer-many.sh >> $DANS_TEMP/dansAll-${day}_${hour}.out & 
 
 
 
